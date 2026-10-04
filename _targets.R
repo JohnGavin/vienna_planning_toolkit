@@ -49,5 +49,50 @@ list(
       }
       res
     }
+  ),
+  # the electrical editor: plan file of the sample, then the two pages built from it
+  tar_target(
+    editor_sources,
+    c(
+      list.files("vpt", pattern = "[.]py$", full.names = TRUE),
+      list.files("editor", full.names = TRUE),
+      list.files("schema", pattern = "[.]json$", full.names = TRUE),
+      file.path("presets", c(
+        "plan_extract.json", "svg_drawing.json", "el_symbols_at.json",
+        "el_parameters.json", "el_rules_at.json", "el_page.json",
+        "editor_docs.json"
+      )),
+      "tools/export_plan.py", "tools/build_editor.py"
+    ),
+    format = "file"
+  ),
+  tar_target(
+    flat_plan,
+    {
+      editor_sources
+      flat_validation
+      res <- run_python(c(
+        "tools/export_plan.py", flat_dxf, "--synthetic",
+        "--output", "samples/synthetic_flat.plan.json"
+      ))
+      # 0 PASS; 1 FAIL / 3 INDETERMINATE stop the pipeline
+      if (res$status != 0L) {
+        cli::cli_abort(c("plan export did not pass (exit {res$status})", res$output))
+      }
+      "samples/synthetic_flat.plan.json"
+    },
+    format = "file"
+  ),
+  tar_target(
+    editor_pages,
+    {
+      editor_sources
+      res <- run_python(c("tools/build_editor.py", "--plan", flat_plan))
+      if (res$status != 0L) {
+        cli::cli_abort(c("editor build failed its gates (exit {res$status})", res$output))
+      }
+      c("site/index.html", "artifact/electrical_planner.html")
+    },
+    format = "file"
   )
 )
