@@ -37,11 +37,38 @@ def _status_word(s) -> str:
     return s or "Bestand"
 
 
+def _extent(ents):
+    """The 2D extent of entities, independent of fonts: a text counts by its insertion point (ezdxf.bbox measures text with
+    the metrics of whatever system font the machine has, so the page size differed between computers); blocks and
+    dimensions by their parts."""
+    from ezdxf import bbox
+    from ezdxf.math import BoundingBox
+    box = BoundingBox()
+
+    def add(e, depth: int) -> None:
+        t = e.dxftype()
+        if t in ("TEXT", "MTEXT", "ATTRIB", "ATTDEF"):
+            box.extend([e.dxf.insert])
+        elif t in ("INSERT", "DIMENSION", "ARC_DIMENSION", "LARGE_RADIAL_DIMENSION") and depth < 16:
+            try:
+                parts = list(e.virtual_entities())
+            except Exception:       # noqa: BLE001 - a block that cannot be exploded adds nothing to the extent
+                return
+            for v in parts:
+                add(v, depth + 1)
+        else:
+            ext = bbox.extents([e], fast=True)
+            if ext.has_data:
+                box.extend([ext.extmin, ext.extmax])
+    for e in ents:
+        add(e, 0)
+    return box
+
+
 def _storey_page(doc, info: dict, key: str, k: float, pre: dict) -> dict | None:
     """{width_mm, height_mm, limits} of a storey: its model-space extent plus render.margin_m, at 1:render.scale_1_to."""
-    from ezdxf import bbox
     ents = [e for e in doc.modelspace() if (info.get(e.dxf.get("layer", "0")) or {}).get("storey") == key]
-    ext = bbox.extents(ents, fast=True)
+    ext = _extent(ents)
     if not ext.has_data:
         return None
     m = pre["render"]["margin_m"] * k
