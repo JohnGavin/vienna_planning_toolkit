@@ -1,0 +1,141 @@
+{
+  "$comment": "The plan file (<name>.plan.json) written by tools/export_plan.py and opened by the electrical editor (Open plan, or paste). JSON Schema keywords: the subset vpt/el_layout.py validate() and the page both implement. One home for the format: vpt/plan.py builds and checks it, the page validates an opened file against this schema embedded in it, the Documentation lists its fields from it.",
+  "title": "Plan file for the electrical editor (<name>.plan.json)",
+  "type": "object",
+  "required": ["schema", "schema_version", "drawing", "synthetic", "exported_by", "extract", "parameters", "storeys"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "vpt_plan", "description": "Always vpt_plan: says what kind of file this is."},
+    "schema_version": {"enum": [1], "description": "Version of this format."},
+    "drawing": {
+      "type": "object",
+      "description": "The drawing the plan was exported from. Only its file name and checksum: no folder, no content beyond what the editor draws.",
+      "required": ["file", "sha256", "mm_per_unit", "units_per_m"],
+      "additionalProperties": false,
+      "properties": {
+        "file": {"type": "string", "minLength": 1, "pattern": "^[^/\\\\]+$", "description": "File name of the DXF (no folder)."},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the DXF file: the drawing's identity; every layout file records it."},
+        "mm_per_unit": {"type": ["number", "null"], "exclusiveMinimum": 0, "description": "Millimetres per drawing unit ($INSUNITS); null when unknown."},
+        "units_per_m": {"type": ["number", "null"], "exclusiveMinimum": 0, "description": "Drawing units per metre (1000 / mm_per_unit); null when unknown."}
+      }
+    },
+    "synthetic": {"type": "boolean", "description": "True for the toolkit's synthetic sample flat (the page then says so), false for a real drawing."},
+    "exported_by": {"type": "string", "minLength": 1, "description": "What wrote the file."},
+    "extract": {
+      "type": "object",
+      "description": "The result of reading rooms, doors and walls (vpt/plan_extract.py): PASS, FAIL or INDETERMINATE, with the reasons.",
+      "required": ["status", "failures", "unknowns"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"enum": ["PASS", "FAIL", "INDETERMINATE"]},
+        "failures": {"type": "array", "items": {"type": "string"}},
+        "unknowns": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "description": "The parameter file the suggestions and examples were computed with (presets/el_parameters.json).",
+      "required": ["id", "version", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "version": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "example_rule": {"type": "string", "description": "Which storey and room the examples use, and the rule that chose them (or why there is none)."},
+    "storeys": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/storey"}, "description": "One entry per storey."}
+  },
+  "$defs": {
+    "point": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number"}},
+    "storey": {
+      "type": "object",
+      "required": ["key", "label", "svg", "layers", "affine", "view_box", "page_mm", "scale_1_to", "rooms", "doors", "walls", "checks", "suggest", "examples"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {"type": "string", "minLength": 1, "description": "Storey key (from the layer names)."},
+        "label": {"type": "string", "description": "Storey name."},
+        "svg": {"type": "string", "minLength": 1, "description": "The storey drawn as SVG (vpt/dxf_svg.py): one <g data-layer> group per DXF layer, a prefixed <style>, no raster images."},
+        "layers": {"type": "array", "items": {"$ref": "#/$defs/layer"}, "description": "The storey's drawing layers, as in the layer panel."},
+        "affine": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"type": "number"}, "description": "Model (drawing units) -> SVG viewBox: X = a*x + c*y + e, Y = b*x + d*y + f."},
+        "view_box": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}, "description": "The SVG's viewBox."},
+        "page_mm": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number"}, "description": "Page size in mm at scale_1_to (symbols are sized in mm on this page)."},
+        "scale_1_to": {"type": "number", "exclusiveMinimum": 0, "description": "The page's scale 1:n."},
+        "rooms": {"type": "array", "items": {"$ref": "#/$defs/room"}},
+        "doors": {"type": "array", "items": {"$ref": "#/$defs/door"}},
+        "walls": {"type": "array", "items": {"$ref": "#/$defs/wall"}},
+        "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}, "description": "R1-R5 for this storey."},
+        "suggest": {"type": "object", "description": "Placement suggestions per rule set (vpt/el_rules.py), in model coordinates.", "additionalProperties": {"type": "object"}},
+        "examples": {"type": ["object", "null"], "description": "The generated example layouts (simple, complex) when this storey is the example storey, else null."}
+      }
+    },
+    "layer": {
+      "type": "object",
+      "required": ["layer", "base", "status", "paths", "default_on"],
+      "additionalProperties": false,
+      "properties": {
+        "layer": {"type": "string", "minLength": 1},
+        "base": {"type": "string"},
+        "status": {"type": "string", "description": "Bestand (no status in the name), Abbruch or Neubau."},
+        "paths": {"type": "integer", "minimum": 0},
+        "default_on": {"type": "boolean", "description": "Shown when the plan opens (false for layers off or frozen in the DXF)."}
+      }
+    },
+    "room": {
+      "type": "object",
+      "required": ["id", "name", "area_text", "wet", "outline", "anchor"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "name": {"type": ["string", "null"]},
+        "area_text": {"type": ["string", "null"]},
+        "area_outline_m2": {"type": ["number", "null"]},
+        "wet": {"type": "boolean"},
+        "outline": {"type": ["array", "null"], "items": {"$ref": "#/$defs/point"}, "description": "The room outline in model coordinates, or null (could not tell)."},
+        "anchor": {"$ref": "#/$defs/point"}
+      }
+    },
+    "door": {
+      "type": "object",
+      "required": ["id", "hinge", "ends", "closed_end", "opens_into", "opens_from", "rooms"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "hinge": {"$ref": "#/$defs/point"},
+        "ends": {"type": "object", "required": ["a", "b"], "additionalProperties": false, "properties": {"a": {"$ref": "#/$defs/point"}, "b": {"$ref": "#/$defs/point"}}},
+        "closed_end": {"enum": ["a", "b", null]},
+        "opens_into": {"type": ["string", "null"]},
+        "opens_from": {"type": ["string", "null"]},
+        "rooms": {"type": "array", "items": {"type": "string"}},
+        "width_m": {"type": "number"},
+        "swing_method": {"type": "string"},
+        "leads_to": {"type": "string"},
+        "pair": {"type": "string"}
+      }
+    },
+    "wall": {
+      "type": "object",
+      "required": ["id", "p", "q"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "base": {"type": "string"},
+        "status": {"type": "string"},
+        "p": {"$ref": "#/$defs/point"},
+        "q": {"$ref": "#/$defs/point"},
+        "rooms": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "check": {
+      "type": "object",
+      "required": ["id", "title", "status", "detail"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "title": {"type": "string"},
+        "status": {"enum": ["match", "different", "could-not-tell"]},
+        "detail": {"type": "string"}
+      }
+    }
+  }
+}
