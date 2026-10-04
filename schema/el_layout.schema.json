@@ -1,0 +1,296 @@
+{
+  "$comment": "JSON Schema (draft 2020-12 keywords, the subset that vpt/el_layout.py and the editor page both implement: type, const, enum, required, properties, additionalProperties, items, minItems, maxItems, minimum, exclusiveMinimum, minLength, pattern, $ref to #/$defs). One home for the layout file format: the editor validates an opened or pasted file against it, the tests validate saved files against it, the Documentation tab lists its fields from it. Version 2 has the switch-light links and the rule set; a version-1 file still opens (migrated with no links and the default rule set); a version-1 file with links is refused.",
+  "title": "Electrical layout of one storey (<drawing>__<storey>.electrical.json)",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "drawing",
+    "model_units_mm",
+    "symbol_set",
+    "background",
+    "symbols",
+    "links",
+    "saved"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "el_layout",
+      "description": "Always el_layout: says what kind of file this is."
+    },
+    "schema_version": {
+      "enum": [
+        1,
+        2
+      ],
+      "description": "Version of this format: 2 (switch-light links, rule set). Files of version 1 still open: they are migrated to 2 with no links and the default rule set; a version-1 file with links is refused."
+    },
+    "drawing": {
+      "type": "object",
+      "description": "Which drawing and storey the layout belongs to. Opening it on another drawing or storey is refused.",
+      "required": [
+        "file",
+        "sha256",
+        "storey"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "description": "File name of the drawing (DWG/DXF) the plan file was exported from (no folder)."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 checksum of that drawing file (plan file drawing.sha256): the drawing's identity."
+        },
+        "storey": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Storey key (plan file storeys[].key)."
+        },
+        "storey_label": {
+          "type": "string",
+          "description": "Storey name, for people reading the file."
+        }
+      }
+    },
+    "model_units_mm": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "exclusiveMinimum": 0,
+      "description": "Millimetres per model unit of the drawing (plan file drawing.mm_per_unit); null when unknown."
+    },
+    "symbol_set": {
+      "type": "object",
+      "description": "The symbol set the codes belong to (presets/el_symbols_at.json).",
+      "required": [
+        "id",
+        "version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Set id."
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Set version."
+        },
+        "verified": {
+          "type": "boolean",
+          "description": "Whether the set was checked against the standard (false for the first set)."
+        }
+      }
+    },
+    "background": {
+      "type": "object",
+      "description": "The drawing layers that were shown when the layout was saved. Applied again when the file is opened (layers the plan does not have are left out and counted).",
+      "required": [
+        "layers",
+        "hidden_layers"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Names of the shown drawing layers (empty: the plan's default layers)."
+        },
+        "hidden_layers": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many layers of the storey were hidden."
+        },
+        "copied": {
+          "type": "string",
+          "description": "When the layer choice was recorded (ISO 8601), or 'example'."
+        }
+      }
+    },
+    "symbols": {
+      "type": "array",
+      "description": "The placed symbols.",
+      "items": {
+        "$ref": "#/$defs/symbol"
+      }
+    },
+    "links": {
+      "type": "array",
+      "description": "Which switch or push-button works which light: one entry per switch-light pair. Every from must be a switch-category symbol of this file and every to a symbol whose code is in that switch's connectable_to list (checked when the file is opened). Empty in version 1.",
+      "items": {
+        "$ref": "#/$defs/link"
+      }
+    },
+    "rule_set": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The placement rule set chosen on the page (presets/el_parameters.json rules: starting or elektroplaner). Missing in version 1 (then the default)."
+    },
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "version",
+        "sha256",
+        "edited"
+      ],
+      "additionalProperties": false,
+      "description": "The parameter file used when this layout was saved (presets/el_parameters.json): its id, version and SHA-256; edited = changed in the page's Parameters panel (then the SHA-256 is of the edited parameters as the panel writes them). Optional.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "edited": {
+          "type": "boolean"
+        }
+      }
+    },
+    "example": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "generated_by",
+        "storey_rule",
+        "rooms"
+      ],
+      "additionalProperties": false,
+      "description": "Present only in an EXAMPLE layout generated by vpt/el_examples.py (not the user's own layout): which example, the rule that chose its storey and rooms, and those rooms.",
+      "properties": {
+        "id": {
+          "enum": [
+            "simple",
+            "complex"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "generated_by": {
+          "type": "string"
+        },
+        "storey_rule": {
+          "type": "string"
+        },
+        "rooms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "saved": {
+      "type": "string",
+      "minLength": 1,
+      "description": "When the file was written (ISO 8601)."
+    },
+    "app": {
+      "type": "string",
+      "description": "What wrote the file."
+    }
+  },
+  "$defs": {
+    "symbol": {
+      "type": "object",
+      "required": [
+        "id",
+        "code",
+        "x",
+        "y",
+        "rotation",
+        "room",
+        "room_method"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^s[0-9]+$",
+          "description": "Symbol id in this layout (s1, s2, ...); links refer to it."
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Symbol code in the set (e.g. SS2)."
+        },
+        "x": {
+          "type": "number",
+          "description": "Insertion point, model x (drawing units: independent of zoom; the same coordinates as the DXF)."
+        },
+        "y": {
+          "type": "number",
+          "description": "Insertion point, model y."
+        },
+        "rotation": {
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "description": "Degrees, counter-clockwise in the model (as in CAD)."
+        },
+        "room": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Room id from the plan file the point lies in, or null (could not tell)."
+        },
+        "room_method": {
+          "enum": [
+            "outline",
+            "nearest label",
+            "could-not-tell"
+          ],
+          "description": "How the room was found: inside its outline; nearest label of a room without an outline (within room_label_max_m); could-not-tell."
+        }
+      }
+    },
+    "link": {
+      "type": "object",
+      "required": [
+        "id",
+        "from",
+        "to"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^l[0-9]+$",
+          "description": "Link id in this layout (l1, l2, ...)."
+        },
+        "from": {
+          "type": "string",
+          "pattern": "^s[0-9]+$",
+          "description": "Id of the switch or push-button."
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^s[0-9]+$",
+          "description": "Id of the light it works."
+        }
+      }
+    }
+  }
+}

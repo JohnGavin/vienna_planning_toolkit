@@ -1,0 +1,408 @@
+{
+  "name": "el_symbols_at",
+  "description": "Symbol library of the electrical editor. One home for every symbol: the palette, the placed symbols, the print legend and the Documentation tab all read it from here (vpt/el_symbols.py checks it; the editor build fails when it is broken). More than one set may be listed; the page then lets the user pick the set (default_set first).",
+  "default_set": "at-iec60617-draft1",
+  "sets": [
+    {
+      "id": "at-iec60617-draft1",
+      "version": "0.1.0",
+      "name_de": "Installationsplan-Symbole, erster Entwurf (UNGEPRÜFT)",
+      "name_en": "Installation-plan symbols, first draft (UNVERIFIED)",
+      "standard": "ÖVE/ÖNORM EN 60617 (graphical symbols for diagrams; the part with the symbols for installation plans)",
+      "installation_standard": "OVE E 8101 (low-voltage electrical installations in Austria)",
+      "edition": "not checked: the symbols were drawn without the standard text, so no edition can be claimed",
+      "provenance": "Drawn for the vienna_planning_toolkit by Claude (an AI assistant) from general knowledge of the IEC 60617 installation-plan conventions as used on German and Austrian plans. Plain lines, arcs and letters only. Not copied from any file, website or catalogue, and not checked against the standard text.",
+      "verified": false,
+      "verified_against": null,
+      "status": "UNVERIFIED — not yet checked against the standard text or the Elektroplaner",
+      "to_verify": "Obtain the symbol table of ÖVE/ÖNORM EN 60617 (installation-plan symbols) or the Elektroplaner's legend, compare every symbol, then set verified to true and verified_against to the document and edition for each symbol that matches (and redraw the ones that do not).",
+      "units": "Millimetres on the storey sheet (the architect's plan at its print scale). The symbol's insertion point is 0,0; +y (down) is the wall side: a socket's stem points to the wall it sits on. Rotation turns the symbol about 0,0.",
+      "stroke_mm": 0.35,
+      "categories": [
+        {
+          "key": "licht",
+          "name_de": "Licht",
+          "name_en": "Lighting"
+        },
+        {
+          "key": "schalter",
+          "name_de": "Schalter",
+          "name_en": "Switches"
+        },
+        {
+          "key": "steckdosen",
+          "name_de": "Steckdosen",
+          "name_en": "Sockets"
+        },
+        {
+          "key": "kueche",
+          "name_de": "Küche/Geräte",
+          "name_en": "Kitchen/appliances"
+        },
+        {
+          "key": "daten",
+          "name_de": "Daten/TV",
+          "name_en": "Data/TV"
+        },
+        {
+          "key": "sicherheit",
+          "name_de": "Sicherheit",
+          "name_en": "Safety"
+        },
+        {
+          "key": "verteiler",
+          "name_de": "Verteiler",
+          "name_en": "Distribution"
+        }
+      ],
+      "symbols": [
+        {
+          "code": "LD",
+          "name_de": "Deckenleuchte",
+          "name_en": "Ceiling light",
+          "category": "licht",
+          "layer": "Elektro – Licht",
+          "svg": "<circle cx=\"0\" cy=\"0\" r=\"3\"/><line x1=\"-2.12\" y1=\"-2.12\" x2=\"2.12\" y2=\"2.12\"/><line x1=\"-2.12\" y1=\"2.12\" x2=\"2.12\" y2=\"-2.12\"/>",
+          "box": [
+            -3.5,
+            -3.5,
+            7,
+            7
+          ],
+          "connectable_to": [
+            "SA",
+            "SW",
+            "SK",
+            "ST"
+          ],
+          "verified": false,
+          "verified_against": null,
+          "note": "Luminaire, general: a circle with a cross."
+        },
+        {
+          "code": "LW",
+          "name_de": "Wandleuchte",
+          "name_en": "Wall light",
+          "category": "licht",
+          "layer": "Elektro – Licht",
+          "svg": "<circle cx=\"0\" cy=\"0\" r=\"3\"/><line x1=\"-2.12\" y1=\"-2.12\" x2=\"2.12\" y2=\"2.12\"/><line x1=\"-2.12\" y1=\"2.12\" x2=\"2.12\" y2=\"-2.12\"/><line x1=\"-3\" y1=\"3.6\" x2=\"3\" y2=\"3.6\"/>",
+          "box": [
+            -3.5,
+            -3.5,
+            7,
+            7.6
+          ],
+          "connectable_to": [
+            "SA",
+            "SW",
+            "SK",
+            "ST"
+          ],
+          "verified": false,
+          "verified_against": null,
+          "note": "The luminaire symbol with a bar on the wall side; the bar convention is the least certain part."
+        },
+        {
+          "code": "SA",
+          "name_de": "Ausschalter",
+          "name_en": "Switch (one-way)",
+          "category": "schalter",
+          "layer": "Elektro – Schalter",
+          "svg": "<circle cx=\"0\" cy=\"0\" r=\"1.5\"/><line x1=\"1.06\" y1=\"-1.06\" x2=\"3.9\" y2=\"-3.9\"/><line x1=\"3.9\" y1=\"-3.9\" x2=\"4.75\" y2=\"-3.05\"/>",
+          "box": [
+            -2,
+            -4.4,
+            7.2,
+            6.4
+          ],
+          "connectable_to": [
+            "LD",
+            "LW"
+          ],
+          "verified": false,
+          "verified_against": null,
+          "note": "A small circle with one stroke and one hook."
+        },
+        {
+          "code": "SW",
+          "name_de": "Wechselschalter",
+          "name_en": "Two-way switch",
+          "category": "schalter",
+          "layer": "Elektro – Schalter",
+          "svg": "<circle cx=\"0\" cy=\"0\" r=\"1.5\"/><line x1=\"1.06\" y1=\"-1.06\" x2=\"3.9\" y2=\"-3.9\"/><line x1=\"3.9\" y1=\"-3.9\" x2=\"4.75\" y2=\"-3.05\"/><line x1=\"-1.06\" y1=\"1.06\" x2=\"-3.9\" y2=\"3.9\"/><line x1=\"-3.9\" y1=\"3.9\" x2=\"-4.75\" y2=\"3.05\"/>",
+          "box": [
+            -5.2,
+            -4.4,
+            10.4,
+            8.8
+          ],
+          "connectable_to": [
+            "LD",
+            "LW"
+          ],
+          "verified": false,
+          "verified_against": null,
+          "note": "Two strokes in opposite directions, each with a hook (point-symmetric). Used in pairs: one light from two places."
+        },
+        {
+          "code": "SK",
+          "name_de": "Kreuzschalter",
+          "name_en": "Intermediate switch",
+          "category": "schalter",
+          "layer": "Elektro – Schalter",
+          "svg": "<circle cx=\"0\" cy=\"0\" r=\"1.5\"/><line x1=\"1.06\" y1=\"-1.06\" x2=\"3.9\" y2=\"-3.9\"/><line x1=\"3.9\" y1=\"-3.9\" x2=\"4.75\" y2=\"-3.05\"/><line x1=\"-1.06\" y1=\"1.06\" x2=\"-3.9\" y2=\"3.9\"/><line x1=\"-3.9\" y1=\"3.9\" x2=\"-4.75\" y2=\"3.05\"/><line x1=\"-1.06\" y1=\"-1.06\" x2=\"-3.9\" y2=\"-3.9\"/><line x1=\"-3.9\" y1=\"-3.9\" x2=\"-3.05\" y2=\"-4.75\"/><line x1=\"1.06\" y1=\"1.06\" x2=\"3.9\" y2=\"3.9\"/><line x1=\"3.9\" y1=\"3.9\" x2=\"3.05\" y2=\"4.75\"/>",
+          "box": [
+            -5.2,
+            -5.2,
+            10.4,
+            10.4
+          ],
+          "connectable_to": [
+            "LD",
+            "LW"
+          ],
+          "verified": false,
+          "verified_against": null,
+          "note": "Four strokes with hooks. Sits between two two-way switches: one light from three or more places."
+        },
+        {
+          "code": "ST",
+          "name_de": "Taster",
+          "name_en": "Push-button",
+          "category": "schalter",
+          "layer": "Elektro – Schalter",
+          "svg": "<circle cx=\"0\" cy=\"0\" r=\"1.8\"/><circle cx=\"0\" cy=\"0\" r=\"0.8\"/>",
+          "box": [
+            -2.3,
+            -2.3,
+            4.6,
+            4.6
+          ],
+          "connectable_to": [
+            "LD",
+            "LW"
+          ],
+          "verified": false,
+          "verified_against": null,
+          "note": "A circle with a smaller circle inside (e.g. for a stairwell timer or an impulse relay)."
+        },
+        {
+          "code": "SO",
+          "name_de": "Steckdose ohne Schutzkontakt",
+          "name_en": "Socket without protective earth",
+          "category": "steckdosen",
+          "layer": "Elektro – Steckdosen",
+          "svg": "<path d=\"M -3 0 A 3 3 0 0 1 3 0\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"3\"/>",
+          "box": [
+            -3.5,
+            -3.5,
+            7,
+            7
+          ],
+          "connectable_to": [],
+          "verified": false,
+          "verified_against": null,
+          "note": "The general socket outlet: an arc and a stem to the wall. In Austria sockets normally have a protective contact (Schuko): use SS1 unless the plan says otherwise."
+        },
+        {
+          "code": "SS1",
+          "name_de": "Schutzkontakt-Steckdose 1-fach",
+          "name_en": "Socket with protective earth, single",
+          "category": "steckdosen",
+          "layer": "Elektro – Steckdosen",
+          "svg": "<path d=\"M -3 0 A 3 3 0 0 1 3 0\"/><line x1=\"-3\" y1=\"0\" x2=\"3\" y2=\"0\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"3\"/>",
+          "box": [
+            -3.5,
+            -3.5,
+            7,
+            7
+          ],
+          "connectable_to": [],
+          "verified": false,
+          "verified_against": null,
+          "note": "The socket outlet with a line across the arc for the protective contact."
+        },
+        {
+          "code": "SS2",
+          "name_de": "Schutzkontakt-Steckdose 2-fach",
+          "name_en": "Socket with protective earth, double",
+          "category": "steckdosen",
+          "layer": "Elektro – Steckdosen",
+          "svg": "<path d=\"M -3 0 A 3 3 0 0 1 3 0\"/><line x1=\"-3\" y1=\"0\" x2=\"3\" y2=\"0\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"3\"/><text x=\"4.4\" y=\"-1.6\" font-size=\"2.6\" text-anchor=\"middle\" fill=\"currentColor\" stroke=\"none\" font-family=\"sans-serif\">2</text>",
+          "box": [
+            -3.5,
+            -3.8,
+            9.3,
+            7.3
+          ],
+          "connectable_to": [],
+          "verified": false,
+          "verified_against": null,
+          "note": "The single socket with the number of outlets written next to it (2)."
+        },
+        {
+          "code": "HE",
+          "name_de": "Herdanschluss 400 V",
+          "name_en": "Cooker outlet 400 V",
+          "category": "kueche",
+          "layer": "Elektro – Küche/Geräte",
+          "svg": "<path d=\"M -3 0 A 3 3 0 0 1 3 0\"/><line x1=\"-3\" y1=\"0\" x2=\"3\" y2=\"0\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"3.6\"/><line x1=\"-0.9\" y1=\"1.3\" x2=\"0.9\" y2=\"0.7\"/><line x1=\"-0.9\" y1=\"2.1\" x2=\"0.9\" y2=\"1.5\"/><line x1=\"-0.9\" y1=\"2.9\" x2=\"0.9\" y2=\"2.3\"/><text x=\"4.3\" y=\"-1.6\" font-size=\"2.4\" text-anchor=\"middle\" fill=\"currentColor\" stroke=\"none\" font-family=\"sans-serif\">H</text>",
+          "box": [
+            -3.5,
+            -3.8,
+            9.2,
+            7.9
+          ],
+          "connectable_to": [],
+          "verified": false,
+          "verified_against": null,
+          "note": "Three strokes across the stem for three-phase (400 V), letter H for Herd. Whether the plan should show a socket or a fixed connection box (Geräteanschlussdose) is for the Elektroplaner."
+        },
+        {
+          "code": "GS",
+          "name_de": "Steckdose Geschirrspüler",
+          "name_en": "Dishwasher socket",
+          "category": "kueche",
+          "layer": "Elektro – Küche/Geräte",
+          "svg": "<path d=\"M -3 0 A 3 3 0 0 1 3 0\"/><line x1=\"-3\" y1=\"0\" x2=\"3\" y2=\"0\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"3\"/><text x=\"0\" y=\"-3.9\" font-size=\"2.2\" text-anchor=\"middle\" fill=\"currentColor\" stroke=\"none\" font-family=\"sans-serif\">GS</text>",
+          "box": [
+            -3.5,
+            -6,
+            7,
+            9.5
+          ],
+          "connectable_to": [],
+          "verified": false,
+          "verified_against": null,
+          "note": "Socket with protective earth plus the appliance's letters (a common plan convention, not a symbol of its own)."
+        },
+        {
+          "code": "BO",
+          "name_de": "Anschluss Backofen",
+          "name_en": "Oven outlet",
+          "category": "kueche",
+          "layer": "Elektro – Küche/Geräte",
+          "svg": "<path d=\"M -3 0 A 3 3 0 0 1 3 0\"/><line x1=\"-3\" y1=\"0\" x2=\"3\" y2=\"0\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"3\"/><text x=\"0\" y=\"-3.9\" font-size=\"2.2\" text-anchor=\"middle\" fill=\"currentColor\" stroke=\"none\" font-family=\"sans-serif\">BO</text>",
+          "box": [
+            -3.5,
+            -6,
+            7,
+            9.5
+          ],
+          "connectable_to": [],
+          "verified": false,
+          "verified_against": null,
+          "note": "Socket with protective earth plus letters BO. A separate oven on 400 V would use HE instead."
+        },
+        {
+          "code": "KS",
+          "name_de": "Steckdose Kühlschrank",
+          "name_en": "Fridge socket",
+          "category": "kueche",
+          "layer": "Elektro – Küche/Geräte",
+          "svg": "<path d=\"M -3 0 A 3 3 0 0 1 3 0\"/><line x1=\"-3\" y1=\"0\" x2=\"3\" y2=\"0\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"3\"/><text x=\"0\" y=\"-3.9\" font-size=\"2.2\" text-anchor=\"middle\" fill=\"currentColor\" stroke=\"none\" font-family=\"sans-serif\">KS</text>",
+          "box": [
+            -3.5,
+            -6,
+            7,
+            9.5
+          ],
+          "connectable_to": [],
+          "verified": false,
+          "verified_against": null,
+          "note": "Socket with protective earth plus letters KS."
+        },
+        {
+          "code": "WM",
+          "name_de": "Steckdose Waschmaschine",
+          "name_en": "Washing machine socket",
+          "category": "kueche",
+          "layer": "Elektro – Küche/Geräte",
+          "svg": "<path d=\"M -3 0 A 3 3 0 0 1 3 0\"/><line x1=\"-3\" y1=\"0\" x2=\"3\" y2=\"0\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"3\"/><text x=\"0\" y=\"-3.9\" font-size=\"2.2\" text-anchor=\"middle\" fill=\"currentColor\" stroke=\"none\" font-family=\"sans-serif\">WM</text>",
+          "box": [
+            -3.5,
+            -6,
+            7,
+            9.5
+          ],
+          "connectable_to": [],
+          "verified": false,
+          "verified_against": null,
+          "note": "Socket with protective earth plus letters WM."
+        },
+        {
+          "code": "DN",
+          "name_de": "Datendose RJ45",
+          "name_en": "Network outlet RJ45",
+          "category": "daten",
+          "layer": "Elektro – Daten/TV",
+          "svg": "<rect x=\"-3.4\" y=\"-3\" width=\"6.8\" height=\"3.4\"/><line x1=\"0\" y1=\"0.4\" x2=\"0\" y2=\"3\"/><text x=\"0\" y=\"-0.6\" font-size=\"1.9\" text-anchor=\"middle\" fill=\"currentColor\" stroke=\"none\" font-family=\"sans-serif\">RJ45</text>",
+          "box": [
+            -3.9,
+            -3.5,
+            7.8,
+            7
+          ],
+          "connectable_to": [],
+          "verified": false,
+          "verified_against": null,
+          "note": "A box with the outlet type written in it and a stem to the wall."
+        },
+        {
+          "code": "TV",
+          "name_de": "Antennendose TV/SAT",
+          "name_en": "TV/SAT outlet",
+          "category": "daten",
+          "layer": "Elektro – Daten/TV",
+          "svg": "<rect x=\"-3.4\" y=\"-3\" width=\"6.8\" height=\"3.4\"/><line x1=\"0\" y1=\"0.4\" x2=\"0\" y2=\"3\"/><text x=\"0\" y=\"-0.6\" font-size=\"1.9\" text-anchor=\"middle\" fill=\"currentColor\" stroke=\"none\" font-family=\"sans-serif\">TV</text>",
+          "box": [
+            -3.9,
+            -3.5,
+            7.8,
+            7
+          ],
+          "connectable_to": [],
+          "verified": false,
+          "verified_against": null,
+          "note": "A box with TV written in it and a stem to the wall."
+        },
+        {
+          "code": "RM",
+          "name_de": "Rauchwarnmelder",
+          "name_en": "Smoke alarm",
+          "category": "sicherheit",
+          "layer": "Elektro – Sicherheit",
+          "svg": "<rect x=\"-3\" y=\"-3\" width=\"6\" height=\"6\"/><text x=\"0\" y=\"0.8\" font-size=\"2.3\" text-anchor=\"middle\" fill=\"currentColor\" stroke=\"none\" font-family=\"sans-serif\">RM</text>",
+          "box": [
+            -3.5,
+            -3.5,
+            7,
+            7
+          ],
+          "connectable_to": [],
+          "verified": false,
+          "verified_against": null,
+          "note": "A square with RM written in it, mounted on the ceiling."
+        },
+        {
+          "code": "VT",
+          "name_de": "Verteiler",
+          "name_en": "Distribution board",
+          "category": "verteiler",
+          "layer": "Elektro – Verteiler",
+          "svg": "<rect x=\"-5\" y=\"-2.5\" width=\"10\" height=\"5\"/><path d=\"M -5 2.5 L 5 -2.5 L 5 2.5 Z\" fill=\"currentColor\"/>",
+          "box": [
+            -5.5,
+            -3,
+            11,
+            6
+          ],
+          "connectable_to": [],
+          "verified": false,
+          "verified_against": null,
+          "note": "A rectangle, half filled. Its long side lies along the wall."
+        }
+      ]
+    }
+  ]
+}

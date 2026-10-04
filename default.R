@@ -7,7 +7,8 @@ r_pkgs <- c("targets", "tarchetypes") |> sort()
 
 py_conf <- list(
   py_version = "3.12",
-  py_pkgs = c("ezdxf", "shapely", "numpy", "pytest") |> sort()
+  # pillow: ezdxf's drawing add-on (DXF -> SVG, vpt/dxf_svg.py) imports PIL at load time
+  py_pkgs = c("ezdxf", "shapely", "numpy", "pillow", "pytest") |> sort()
 )
 
 system_pkgs <- c("quarto") |> sort()

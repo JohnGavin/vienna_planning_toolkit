@@ -327,14 +327,28 @@ def draw_paper(doc, preset: dict) -> None:
             (x_text, y))
 
 
+def stable_classes(doc) -> None:
+    """Sort the CLASS entries ezdxf adds for the entity types in use. ezdxf adds them from a set
+    (entitydb.dxf_types_in_use()), so their order followed Python's string hashing (PYTHONHASHSEED): the
+    same preset gave a different DXF on another machine. The required classes keep ezdxf's order."""
+    from ezdxf.sections.classes import REQ_R2004, REQUIRED_CLASSES
+    required = REQUIRED_CLASSES.get(doc.dxfversion, REQ_R2004)      # the same default ezdxf uses
+    items = list(doc.classes.classes.items())
+    head = [kv for kv in items if kv[0][0] in required]
+    rest = sorted((kv for kv in items if kv[0][0] not in required), key=lambda kv: kv[0])
+    doc.classes.classes = dict(head + rest)
+
+
 def fix_metadata(doc, preset: dict) -> None:
-    """Make header timestamps/GUIDs come from the preset, at write time."""
+    """Make header timestamps/GUIDs come from the preset, and the CLASS order stable, at write time
+    (ezdxf adds the classes just before it updates the metadata)."""
     meta = preset["meta"]
     jd = juliandate(datetime.fromisoformat(meta["created_utc"]))
     original = doc._update_metadata
 
     def _update_metadata():
         original()
+        stable_classes(doc)
         for var in ("$TDCREATE", "$TDUCREATE", "$TDUPDATE", "$TDUUPDATE"):
             doc.header[var] = jd
         doc.header["$TDINDWG"] = 0.0

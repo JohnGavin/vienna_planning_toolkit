@@ -1,0 +1,8 @@
+{
+  "name": "el_page",
+  "description": "Fixed settings of the electrical editor page. The values a user tunes (symbol_scale, room_label_max_m) are parameters: presets/el_parameters.json sections.page; vpt/el_layout.py load_page() merges them in.",
+  "drag_threshold_px": 4,
+  "undo_limit": 200,
+  "file_suffix": ".electrical.json",
+  "app": "vienna_planning_toolkit electrical editor"
+}
