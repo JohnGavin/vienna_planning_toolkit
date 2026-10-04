@@ -1,0 +1,8 @@
+_targets/
+_scratch/
+__pycache__/
+.pytest_cache/
+.quarto/
+.Rhistory
+.RData
+result
