@@ -349,28 +349,51 @@
     if (typeof old === 'number' || (old === null && isNum(s))) return isNum(s) ? [true, Number(s)] : [false, 'a number is needed'];
     return [true, s];
   }
+  // one tab per group (CFG.params_panel.tabs), one full-width table per tab: Parameter | Value | Unit | Source. Live values change the
+  // page now; the rest is computed when the plan is exported (tools/export_plan.py): its tab carries a "Needs re-export" pill and,
+  // in the shareable demo (which cannot export), its inputs are read-only. Explained once, in the callout above the tabs.
+  var PPC = CFG.params_panel || { tabs: [], columns: ['Parameter', 'Value', 'Unit', 'Source'], live: 'Live', export: 'Needs re-export' };
+  var EXPORT_RO = V.id === 'artifact';
+  function short(t, n) { var w = String(t || '').split(/\s+/).filter(Boolean); return w.slice(0, n).join(' ') + (w.length > n ? ' …' : ''); }
   function ptip(label, mark, source, live) {
-    return '<p class="tip-h"><b>' + escH(label) + '</b></p><ul class="tipl"><li><b>' + escH(mark || 'no mark') + '</b></li>' +
-      (source ? '<li><b>Source</b>: ' + escH(String(source).split(/\s+/).slice(0, 10).join(' ')) + (String(source).split(/\s+/).length > 10 ? ' …' : '') + '</li>' : '') +
-      '<li><b>Applies</b>: ' + (live ? 'at once' : 'after the plan is exported again') + '</li></ul>' + more(PMETA.anchor || 'doc-el-params');
+    return '<p class="tip-h"><b>' + escH(label) + '</b></p><ul class="tipl"><li><b>' + escH(short(mark || 'no mark', 8)) + '</b></li>' +
+      (source ? '<li><b>Source</b>: ' + escH(short(source, 10)) + '</li>' : '') +
+      '<li><b>' + escH(live ? PPC.live : PPC.export) + '</b></li></ul>' + more(PMETA.anchor || 'doc-el-params');
   }
+  function markPill(mark) { var m = String(mark || ''); if (!m) return '';
+    var confirm = /confirm/i.test(m), none = /no value/i.test(m);
+    return '<span class="pill pill--' + (none ? 'watch' : confirm ? 'check' : 'good') + '" title="' + escH(m) + '">' + escH(none ? 'no value yet' : confirm ? 'to confirm' : short(m, 3)) + '</span>'; }
   function row(path, label, v, unit, mark, source, live, nullable) {
-    var colour = typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
-    return '<div class="el-prow" data-path="' + escH(path) + '"><span><span class="tip" data-tip="' + escH(ptip(label, mark, source, live)) + '">' + escH(label) + '</span></span><span>' +
-      (colour ? '<input type="color" value="' + escH(v) + '" aria-label="' + escH(label) + '"> <code>' + escH(v) + '</code>'
-              : '<input type="text" value="' + escH(fmtVal(v)) + '" placeholder="' + (nullable ? 'no value yet' : '') + '" aria-label="' + escH(label) + '">') +
-      '</span><span>' + escH(unit || '') + '</span><span class="' + (live ? 'pass' : 'unk') + '">' + (live ? 'at once' : 'on export') + '</span></div>';
+    var colour = typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v), ro = !live && EXPORT_RO;
+    return '<tr class="el-prow" data-path="' + escH(path) + '" data-live="' + (live ? '1' : '0') + '"><td class="el-plabel"><span class="tip" data-tip="' + escH(ptip(label, mark, source, live)) + '">' +
+      escH(label) + '</span></td><td class="el-pval">' +
+      (colour ? '<input type="color" value="' + escH(v) + '" aria-label="' + escH(label) + '"' + (ro ? ' disabled' : '') + '> <code>' + escH(v) + '</code>'
+              : '<input type="text" value="' + escH(fmtVal(v)) + '" placeholder="' + (nullable ? 'no value yet' : '') + '" aria-label="' + escH(label) + '"' + (ro ? ' readonly' : '') + '>') +
+      '</td><td class="el-punit">' + escH(unit || '') + '</td><td class="el-psrc">' + markPill(mark) + '</td></tr>';
   }
+  function groupRow(text) { return '<tr class="el-pgroup"><th colspan="4" scope="colgroup">' + escH(text) + '</th></tr>'; }
   function buildPanel() {
-    if (!PP) return; var body = PP.querySelector('.el-params-body'), h = '', live = PMETA.live_sections || [];
-    Object.keys(PARAMS.sections).forEach(function (sk) { var s = PARAMS.sections[sk];
-      h += '<fieldset><legend>' + escH(s.label) + '</legend><div class="el-ptab">' + Object.keys(s.values).map(function (k) { var v = s.values[k];
-        return row('sections.' + sk + '.values.' + k + '.value', v.label, v.value, v.unit, v.mark || s.mark, v.source || s.source || v.note, live.indexOf(sk) >= 0, false); }).join('') + '</div></fieldset>'; });
-    PARAMS.rules.rule_sets.forEach(function (rs) { var vals = PARAMS.rules.values[rs.id];
-      h += '<fieldset><legend>' + escH(PARAMS.rules.label + ': ' + rs.name) + '</legend><div class="el-ptab">' + Object.keys(PARAMS.rules.definitions).map(function (k) {
-        var d = PARAMS.rules.definitions[k], v = vals[k] || { value: null };
-        return row('rules.values.' + rs.id + '.' + k + '.value', d.label, v.value, d.unit, v.mark || rs.status, v.source, LIVE_RULES.indexOf(k) >= 0, true); }).join('') + '</div></fieldset>'; });
-    body.innerHTML = h; PP.setAttribute('data-edited', PEDITED ? '1' : '0'); if (window.vptTipify) window.vptTipify(body);
+    if (!PP) return; var body = PP.querySelector('.el-params-body'), live = PMETA.live_sections || [], nav = '', panels = '';
+    var openTab = (body.querySelector('.tab[aria-selected="true"]') || {}).dataset;
+    PPC.tabs.forEach(function (t, i) {
+      var rows = [], exp = false;
+      (t.sections || []).forEach(function (sk) { var s = PARAMS.sections[sk]; if (!s) return; var lv = live.indexOf(sk) >= 0; if (!lv) exp = true;
+        if (t.sections.length > 1) rows.push(groupRow(s.label));
+        Object.keys(s.values).forEach(function (k) { var v = s.values[k];
+          rows.push(row('sections.' + sk + '.values.' + k + '.value', v.label, v.value, v.unit, v.mark || s.mark, v.source || s.source || v.note, lv, false)); }); });
+      if (t.rules) PARAMS.rules.rule_sets.forEach(function (rs) { var vals = PARAMS.rules.values[rs.id], part = [];
+        Object.keys(PARAMS.rules.definitions).forEach(function (k) { var lv = LIVE_RULES.indexOf(k) >= 0; if (lv !== (t.rules === 'live')) return; if (!lv) exp = true;
+          var d = PARAMS.rules.definitions[k], v = vals[k] || { value: null };
+          part.push(row('rules.values.' + rs.id + '.' + k + '.value', d.label, v.value, d.unit, v.mark || rs.status, v.source, lv, true)); });
+        if (part.length) rows = rows.concat([groupRow(PPC.rule_set_column + ': ' + rs.name)], part); });
+      var id = 'el-pp-' + i, sel = openTab ? openTab.tab === id : i === 0;
+      nav += '<button type="button" class="tab" role="tab" id="tab-' + id + '" data-tab="' + id + '" aria-controls="' + id + '" aria-selected="' + (sel ? 'true' : 'false') + '"' + (sel ? '' : ' tabindex="-1"') + '>' +
+        escH(t.label) + (exp ? ' <span class="pill pill--watch">' + escH(PPC.export) + '</span>' : '') + '</button>';
+      panels += '<div class="tabpanel' + (sel ? ' active' : '') + '" role="tabpanel" id="' + id + '" data-panel="' + id + '" aria-labelledby="tab-' + id + '"><div class="tbl-scroll"><table class="el-ptable">' +
+        '<thead><tr>' + PPC.columns.map(function (c) { return '<th scope="col">' + escH(c) + '</th>'; }).join('') + '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div></div>';
+    });
+    body.innerHTML = '<div class="tabset el-ptabs"><div class="tabset-nav" role="tablist" aria-label="Parameter groups">' + nav + '</div>' + panels + '</div>';
+    PP.setAttribute('data-edited', PEDITED ? '1' : '0'); if (window.vptTabsets) window.vptTabsets(body); if (window.vptTipify) window.vptTipify(body);
   }
   function setPath(o, path, v) { var ks = path.split('.'), x = o; for (var i = 0; i < ks.length - 1; i++) x = x[ks[i]]; x[ks[ks.length - 1]] = v; }
   function getPath(o, path) { return path.split('.').reduce(function (x, k) { return x == null ? x : x[k]; }, o); }
@@ -389,7 +412,7 @@
       var trial = JSON.parse(JSON.stringify(PARAMS)); setPath(trial, path, res[1]); var probs = paramProblems(trial);
       setPath(PARAMS, path, res[1]); if (inp.type === 'color') { var c = tr.querySelector('code'); if (c) c.textContent = res[1]; }
       setEdited(true); syncParams();
-      pstatus(probs.length ? fmt(M.params_warn, { n: probs.length, msg: probs[0] }) : M.params_changed, probs.length ? 'warn' : 'ok'); });
+      pstatus(probs.length ? fmt(M.params_warn, { n: probs.length, msg: probs[0] }) : tr.getAttribute('data-live') === '0' ? M.params_changed_export : M.params_changed, probs.length ? 'warn' : 'ok'); });
     var pfile = PP.querySelector('input.el-params-file'), phandle = null;
     var PB = function (a) { return PP.querySelector('[data-pact="' + a + '"]'); };
     PB('copy').addEventListener('click', function () { copyText(paramsSaveText(), function () { pstatus(M.copied_params, 'ok'); }); });
@@ -882,8 +905,9 @@
       status(fmt(M.rules_changed, { set: ruleSet(S.rules).name }), ''); });
 
     // ---- palette: drag onto the drawing (mouse, pen or finger), or click to select then click the drawing ----
+    // picked, not placed: say so after the rings are drawn (the rings' own status line would hide it, and rings look like symbols)
     function arm(code, btn) { disarm(); if (connect) setConnect(false); armed = code; btn.setAttribute('aria-pressed', 'true'); view.classList.add('el-armed');
-      status(fmt(M.armed, { name: def(code).name_de }), ''); showGhosts(code); }
+      var n = showGhosts(code); status(fmt(n ? M.armed_rings : M.armed, { name: def(code).name_de, n: n }), 'warn'); }
     function disarm() { armed = null; view.classList.remove('el-armed'); if (!pd && !mv) hideGhosts();
       pg.querySelectorAll('.el-sym-btn[aria-pressed="true"]').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); }); }
     var pd = null, justDragged = false, mv = null, pend = null, cpend = null;
@@ -989,6 +1013,18 @@
       items.push('<span class="ps-item el-leg-unv">' + escH(M.legend_note) + '</span>');
       return items.join('');
     };
+
+    // ---- print view notes (core.js shows them above the sheet): only placed symbols on layers that are on will print ----
+    view.printNotice = function () {
+      var on = {}, out = [];
+      view.querySelectorAll('input[data-toggle-layer]').forEach(function (i) { on[i.getAttribute('data-toggle-layer')] = i.checked; });
+      var shown = S.symbols.filter(function (s) { return on[def(s.code).layer]; }).length, hidden = S.symbols.length - shown;
+      if (armed) out.push(['warn', fmt(M.print_armed, { name: def(armed).name_de })]);
+      out.push(shown ? ['ok', fmt(M.print_ok, { n: shown })] : ['warn', M.print_none]);
+      if (hidden) out.push(['warn', fmt(M.print_hidden, { n: hidden })]);
+      return out;
+    };
+    view.onPrint = function () { disarm(); hideGhosts(); };
 
     if (window.vptInitViewer) window.vptInitViewer(view);
     if (window.vptTipify) window.vptTipify(pg);
