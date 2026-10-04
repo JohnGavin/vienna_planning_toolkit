@@ -15,6 +15,13 @@ artifact host would wrap it):
   C9  the variant's buttons: Pages has Save / Save to file / Print view, the artifact has none of them (Copy instead)
   C10 no console error or uncaught exception
   C11 no network request except the page itself (falsified: an injected image from a non-allowed host is caught)
+  C12 print view (Pages): every placed symbol is in the print sheet, visible in its print colour (pixels of its colour around it,
+      against the same crop with the electrical layers off) and in the PDF (stroke colour operators of Page.printToPDF, against a
+      PDF with the layers off); a symbol picked but not placed is named in a warning above the sheet. Falsified every run: with
+      the symbols made white on paper (the bug, reintroduced) the pixel and PDF measures must drop, else the check cannot go red.
+      The demo: no print view to reach.
+  C13 every Documentation anchor (#doc-..., from the page's links and tests/doc_anchors.txt) opens its tab, sub-tab and
+      accordion and is visible; a popup's More link clicked with real mouse events opens the right tab and sub-tab
 Exit codes: 0 PASS, 1 FAIL, 3 INDETERMINATE (Chrome missing or a step could not run). Results: _scratch/check_<variant>.json.
 """
 from __future__ import annotations
@@ -29,8 +36,12 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
+import base64  # noqa: E402
+import re  # noqa: E402
+import zlib  # noqa: E402
+
 import cdp  # noqa: E402
-from vpt import el_layout, el_rules, el_symbols  # noqa: E402
+from vpt import el_layout, el_params, el_rules, el_symbols  # noqa: E402
 
 SCRATCH = ROOT / "_scratch"
 PAGES = {"pages": ROOT / "site" / "index.html", "artifact": ROOT / "artifact" / "electrical_planner.html"}
@@ -77,6 +88,142 @@ CONTRAST_JS = r"""(function () {
   worst.sort(function (x, y) { return x[0] - y[0]; });
   return { checked: n, low: worst.slice(0, 12), n_low: worst.length };
 })()"""
+
+
+def count_near(b, png: bytes, rgb, tol: int = 40) -> int:
+    """Pixels of a PNG within tol of rgb in every channel (decoded in the page's canvas)."""
+    b64 = base64.b64encode(png).decode()
+    return b.js("new Promise(function (ok) { var im = new Image(); im.onload = function () { var c = document.createElement('canvas'); c.width = im.width; c.height = im.height;"
+                " var x = c.getContext('2d'); x.drawImage(im, 0, 0); var d = x.getImageData(0, 0, c.width, c.height).data, n = 0;"
+                f" for (var i = 0; i < d.length; i += 4) if (Math.abs(d[i] - {rgb[0]}) < {tol} && Math.abs(d[i+1] - {rgb[1]}) < {tol} && Math.abs(d[i+2] - {rgb[2]}) < {tol}) n++; ok(n); }};"
+                f" im.src = 'data:image/png;base64,{b64}'; }})")
+
+
+def hex_rgb(h: str) -> tuple:
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def pdf_colour_ops(pdf: bytes, colours: dict) -> dict:
+    """How often each colour is set as a stroke or fill colour (RG / rg operators) in the PDF's content streams."""
+    text = b""
+    for st in re.findall(rb"stream\r?\n(.*?)\r?\nendstream", pdf, re.S):
+        try:
+            text += zlib.decompress(st)
+        except zlib.error:
+            pass
+    ops = [tuple(float(v) for v in m.groups()[:3]) for m in re.finditer(rb"(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (?:RG|rg)\b", text)]
+    return {k: sum(1 for o in ops if all(abs(a - c / 255) < 0.02 for a, c in zip(o, hex_rgb(h)))) for k, h in colours.items()}
+
+
+def centre(b, sel: str):
+    return b.js(f"(function () {{ var e = document.querySelector('{sel}'); e.scrollIntoView({{block: 'center'}}); var r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }})()")
+
+
+def pause(b, ms: int = 300) -> None:
+    b.call("Runtime.evaluate", {"expression": f"new Promise(function (ok) {{ setTimeout(ok, {ms}); }})", "awaitPromise": True})
+
+
+WHITE_ON_PAPER = ("body.dwg-printing g.el-layer .el-symg, body.dwg-printing g.el-layer .el-symg * { stroke: #ffffff !important; color: #ffffff !important; fill: none !important } "
+                  "@media print { g.el-layer .el-symg, g.el-layer .el-symg * { stroke: #ffffff !important; color: #ffffff !important; fill: none !important } }")
+
+
+def print_check(b, P: str, lib: dict) -> tuple:
+    """C12: see the module docstring. Returns (ok, detail, extra)."""
+    pcol = el_params.palette(el_params.load(), "colours_print")
+    sdef = el_symbols.default_set(lib)
+    cat = {x["code"]: x["category"] for x in sdef["symbols"]}
+    name = {x["code"]: x["name_de"] for x in sdef["symbols"]}
+    placed = b.js(f"{P}.layout().symbols")
+    pick = next(c for c in ("SS2", "SO", "TV") if c not in {s["code"] for s in placed})
+    b.click(*centre(b, f'.el-page[data-storey="{STOREY}"] .el-sym-btn[data-code="{pick}"]'))
+    b.click(*centre(b, f'.el-page[data-storey="{STOREY}"] [data-act="print"]'))
+    pause(b, 400)
+    notes = b.js("Array.prototype.map.call(document.querySelectorAll('#dwg-printsheet .ps-note'), function (p) { return [p.className, p.textContent]; })")
+    still_armed = b.js("document.querySelectorAll('.el-sym-btn[aria-pressed=\"true\"]').length")
+    vis = b.js(r"""(function () {
+      return Array.prototype.map.call(document.querySelectorAll('#dwg-printsheet svg.el-svg g.el-layer .el-sym'), function (g) {
+        var r = g.getBoundingClientRect(), shown = true, op = 1, sg = g.querySelector('.el-symg'), ch = sg && sg.firstElementChild;
+        for (var e = g; e && e.nodeType === 1; e = e.parentElement) { var cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') shown = false; op *= +cs.opacity; }
+        var cs2 = ch ? getComputedStyle(ch) : null, m = ch ? ch.getScreenCTM() : null;
+        return { id: g.getAttribute('data-id'), code: g.getAttribute('data-code'), rect: [r.left - 2, r.top - 2, r.width + 4, r.height + 4], shown: shown, opacity: op,
+                 stroke: cs2 ? cs2.stroke : '', px: cs2 && m ? parseFloat(cs2.strokeWidth) * Math.hypot(m.a, m.b) : 0 };
+      }); })()""")
+
+    def crops() -> dict:
+        return {v["id"]: count_near(b, b.screenshot(v["rect"]), hex_rgb(pcol[cat[v["code"]]])) for v in vis}
+
+    def el_layers(on: bool) -> None:
+        b.js("document.querySelectorAll('.el-page[data-storey=\"" + STOREY + "\"] input[data-toggle-layer][data-base=\"Elektro\"]').forEach(function (i) { i.checked = "
+             + ("true" if on else "false") + "; i.dispatchEvent(new Event('change')); })")
+        pause(b, 150)
+
+    def pdf() -> dict:
+        data = base64.b64decode(b.call("Page.printToPDF", {"printBackground": True, "preferCSSPageSize": True}, timeout=90)["data"])
+        return pdf_colour_ops(data, {c: pcol[c] for c in sorted({cat[s["code"]] for s in placed})})
+    on, pdf_on = crops(), pdf()
+    b.js(f"(function () {{ var s = document.createElement('style'); s.id = 'c12-falsify'; s.textContent = {json.dumps(WHITE_ON_PAPER)}; document.head.appendChild(s); }})()")
+    pause(b, 150)
+    fals, pdf_fals = crops(), pdf()
+    b.js("document.getElementById('c12-falsify').remove()")
+    el_layers(False)
+    off, pdf_off = crops(), pdf()
+    el_layers(True)
+    b.click(*centre(b, '#dwg-printsheet [data-act="exit-print"]'))
+    pause(b, 200)
+    want_rgb = {v["id"]: "rgb(%d, %d, %d)" % hex_rgb(pcol[cat[v["code"]]]) for v in vis}
+    ids_ok = sorted(v["id"] for v in vis) == sorted(s["id"] for s in placed)
+    vis_ok = all(v["shown"] and v["opacity"] >= 0.9 and v["rect"][2] > 6 and v["rect"][3] > 6 and v["stroke"] == want_rgb[v["id"]] and v["px"] >= 0.75 for v in vis)
+    px_ok = all(on[i] - off[i] >= 12 for i in on)
+    px_red = all(fals[i] - off[i] < (on[i] - off[i]) / 2 for i in on)
+    pdf_ok = all(pdf_on[c] > pdf_off[c] for c in pdf_on)
+    pdf_red = all(pdf_fals[c] < pdf_on[c] for c in pdf_on)
+    warn = [t for c, t in notes if "ps-note-warn" in c]
+    notes_ok = (any(name[pick] in t for t in warn) and any(f"{len(placed)} placed" in t for c, t in notes if "ps-note-ok" in c) and still_armed == 0)
+    detail = (f"{len(vis)} of {len(placed)} placed symbols in the print sheet, visible in print colour: {vis_ok} (stroke px {[round(v['px'], 2) for v in vis]}); "
+              f"pixels on/off/falsified {[(on[i], off[i], fals[i]) for i in on]}; PDF colour ops on/off/falsified {[(c, pdf_on[c], pdf_off[c], pdf_fals[c]) for c in pdf_on]}; "
+              f"notes {[t[:70] for c, t in notes]}; picked {pick} left armed: {still_armed}")
+    if not (px_red and pdf_red):
+        return None, "the falsified run (symbols white on paper) did not drop the measures: the check cannot go red. " + detail, {}
+    return ids_ok and vis_ok and px_ok and pdf_ok and notes_ok, detail, {"pixels": [on, off, fals], "pdf": [pdf_on, pdf_off, pdf_fals]}
+
+
+ANCHOR_JS = r"""(function (ids) {
+  var bad = [];
+  ids.forEach(function (id) {
+    if (!window.vptShowDoc(id)) { bad.push(id + ': missing'); return; }
+    var t = document.getElementById(id), ok = t.getClientRects().length > 0 && !document.getElementById('vpt-pane-docs').hidden;
+    for (var e = t; e && e.nodeType === 1; e = e.parentElement) {
+      if (e.classList.contains('tabpanel') && !e.classList.contains('active')) ok = false;
+      if (e.tagName === 'DETAILS' && e !== t && !e.open) ok = false;
+      if (e.hidden) ok = false; }
+    if (!ok) bad.push(id); });
+  return bad; })"""
+
+
+def anchor_check(b, variant: str) -> tuple:
+    page = PAGES[variant].read_text(encoding="utf-8")
+    ids = sorted(set(re.findall(r'(?:href=(?:"|&quot;)#)(doc-[a-z0-9-]+)', page)) | set((ROOT / "tests" / "doc_anchors.txt").read_text(encoding="utf-8").split()))
+    bad = b.js(ANCHOR_JS + "(" + json.dumps(ids) + ")")
+    # falsified: an id that is not on the page must be reported
+    fbad = b.js(ANCHOR_JS + '(["doc-not-there"])')
+    # a real More click from a popup: hover the Snap label, click the popup's More link
+    b.js("window.vptShowTab('vpt-pane-editor')")
+    x, y = centre(b, f'.el-page[data-storey="{STOREY}"] .el-snap-wrap')
+    b.mouse("mouseMoved", x, y, buttons=0)
+    pause(b, 200)
+    link = b.js("(function () { var a = document.querySelector('#tipbox:not([hidden]) a.doclink'); if (!a) return null; var r = a.getBoundingClientRect();"
+                " return [r.left + r.width / 2, r.top + r.height / 2, a.getAttribute('href')]; })()")
+    got = None
+    if link:
+        b.mouse("mouseMoved", link[0], link[1], buttons=0)
+        b.click(link[0], link[1])
+        pause(b, 300)
+        got = b.js("(function () { var sel = function (ts) { var t = document.querySelector('#' + ts + ' > .tabset-nav > .tab[aria-selected=\"true\"]'); return t ? t.getAttribute('data-tab') : null; };"
+                   " return [!document.getElementById('vpt-pane-docs').hidden, sel('ts-docs'), sel('ts-doc-howto')]; })()")
+    want = [True, "doc-el-howto", link[2][1:] if link else None]
+    ok = not bad and fbad == ["doc-not-there: missing"] and got == want
+    return ok, f"{len(ids)} anchors opened, {len(bad)} not visible {bad[:5]} (falsified: {fbad}); popup More {link[2] if link else 'not found'} -> docs shown, tab, sub-tab {got}"
 
 
 def stage_rect(b) -> list[float]:
@@ -169,6 +316,16 @@ def run(variant: str) -> dict:
         c1 = cyan(b.screenshot(box)) if box else None
         ok4 = bool(links) and len(links) == 1 and links[0]["from"] == sid_s and links[0]["to"] == sid_l and c1 is not None and c1 > max(10, 3 * (c0 or 0))
         put("C4", ok4, f"links {links}; link-coloured pixels at the midpoint {c0} before, {c1} after", before=c0, after=c1)
+        # ---- C12 print view: the placed symbols (SS1, LD, SA above, placed by real pointer events) on paper and in the PDF
+        if variant == "pages":
+            ok12, d12, x12 = print_check(b, P, lib)
+            put("C12", ok12, d12, **x12)
+        else:
+            put("C12", not b.js("!!document.querySelector('[data-act=\"print\"]')"), "the demo has no print view a user could reach (no Print view button)")
+        # ---- C13 Documentation anchors and a real More click
+        ok13, d13 = anchor_check(b, variant)
+        put("C13", ok13, d13)
+        b.js("window.vptShowTab('vpt-pane-editor')")
         # ---- C5 Copy layout -> JSON valid against the schema and opening on this drawing (match)
         try:
             b.call("Browser.grantPermissions", {"permissions": ["clipboardReadWrite", "clipboardSanitizedWrite"]})
@@ -237,8 +394,9 @@ def run(variant: str) -> dict:
         for scheme in ("light", "dark"):
             b.colour_scheme(scheme)
             b.call("Runtime.evaluate", {"expression": "new Promise(function (ok) { setTimeout(ok, 200); })", "awaitPromise": True})
+            b.js("document.querySelector('.el-params').open = true")      # the Parameters tables and pills are checked too
             con[scheme] = b.js(CONTRAST_JS)
-            b.js("window.vptShowTab('vpt-pane-docs')")
+            b.js("document.querySelector('.el-params').open = false; window.vptShowTab('vpt-pane-docs')")
             con[scheme + "_docs"] = b.js(CONTRAST_JS)
             b.js("window.vptShowTab('vpt-pane-editor')")
         put("C8", all(v["n_low"] == 0 and v["checked"] > 20 for v in con.values()),

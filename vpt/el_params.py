@@ -20,7 +20,7 @@ PRESET = PRESETS / "el_parameters.json"
 SCHEMA = SCHEMAS / "el_parameters.schema.json"
 OTHER_PRESETS = {"el_rules_at.json": PRESETS / "el_rules_at.json", "el_page.json": PRESETS / "el_page.json",
                  "el_symbols_at.json": PRESETS / "el_symbols_at.json", "el_layout.schema.json": SCHEMAS / "el_layout.schema.json"}
-# values the page applies at once when edited in the Parameters panel; the rest (the suggestion geometry and the examples) is
+# values the page applies live when edited in the Parameters panel ("Live"); the rest ("Needs re-export") (the suggestion geometry and the examples) is
 # computed in Python when the plan file is exported, so an edit takes effect after the plan is exported again
 LIVE_SECTIONS = ("snap", "page", "colours_screen", "colours_print", "drawing_screen", "drawing_print", "screen_lines", "print_lines")
 LIVE_RULES = ("hint_switch_near_door_m",)

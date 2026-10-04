@@ -71,16 +71,71 @@
   box.addEventListener('mouseleave', later);
   document.addEventListener('focusin', function (e) { var el = tipOf(e.target); if (el) open(el); });
   document.addEventListener('focusout', function (e) { if (current && e.target === current && !box.contains(e.relatedTarget)) later(); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+  document.addEventListener('keydown', function (e) { if (e.key !== 'Escape') return; close();
+    var x = document.body.classList.contains('dwg-printing') && document.querySelector('#dwg-printsheet [data-act="exit-print"]'); if (x) x.click(); });
   document.addEventListener('click', function (e) { var el = tipOf(e.target);
     if (el && el.tagName !== 'BUTTON' && !(el instanceof SVGElement) && el !== current && !box.contains(el)) { open(el); return; }
     if (current && !current.contains(e.target) && !box.contains(e.target)) close(); });
 
-  // ---- Documentation links: show the tab that holds the anchor, scroll to it, mark it briefly ----
+  // ---- pill tabsets (Documentation tabs and sub-tabs, Parameters groups): direct children only, so a nested tabset keeps its own ----
+  function initTabsets(root) {
+    (root || document).querySelectorAll('.tabset').forEach(function (ts) {
+      if (ts.vptSelect) return;
+      var tabs = Array.prototype.slice.call(ts.querySelectorAll(':scope > .tabset-nav > .tab'));
+      var panels = Array.prototype.slice.call(ts.querySelectorAll(':scope > .tabpanel'));
+      function select(name, focus) {
+        tabs.forEach(function (t) { var on = t.getAttribute('data-tab') === name; t.setAttribute('aria-selected', on ? 'true' : 'false'); t.tabIndex = on ? 0 : -1; if (on && focus) t.focus(); });
+        panels.forEach(function (p) { p.classList.toggle('active', p.getAttribute('data-panel') === name); });
+      }
+      ts.vptSelect = select;
+      tabs.forEach(function (t) {
+        t.addEventListener('click', function () { select(t.getAttribute('data-tab'), false); });
+        t.addEventListener('keydown', function (e) {
+          var vis = tabs.filter(function (x) { return !x.hidden; }), i = vis.indexOf(t);
+          if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); var n = vis[(i + (e.key === 'ArrowRight' ? 1 : vis.length - 1)) % vis.length]; select(n.getAttribute('data-tab'), true); }
+        });
+      });
+    });
+  }
+  initTabsets(document);
+  window.vptTabsets = initTabsets;
+
+  // ---- detail tabs (Files, Build): hidden until the ⚙ toggle shows them; a Documentation link into one shows them too ----
+  var UI = CFG0.docs_ui || {}, internalsOn = store('vpt-internals') === '1';
+  function applyInternals() {
+    document.querySelectorAll('.tab[data-internal]').forEach(function (t) {
+      t.hidden = !internalsOn;
+      if (!internalsOn && t.getAttribute('aria-selected') === 'true') { var ts = t.closest('.tabset'), first = ts && ts.querySelector(':scope > .tabset-nav > .tab:not([data-internal])');
+        if (first && ts.vptSelect) ts.vptSelect(first.getAttribute('data-tab')); } });
+    var b = document.getElementById('vpt-internals'); if (!b) return;
+    var lab = UI.internals ? (internalsOn ? UI.internals.shown : UI.internals.hidden) : '';
+    b.setAttribute('aria-pressed', internalsOn ? 'true' : 'false'); if (lab) b.setAttribute('aria-label', lab);
+  }
+  function setInternals(on) { internalsOn = on; store('vpt-internals', on ? '1' : '0'); applyInternals(); }
+  var itog = document.getElementById('vpt-internals');
+  if (itog) itog.addEventListener('click', function () { setInternals(!internalsOn); });
+  applyInternals();
+
+  // ---- text size (A− / A+): --fs-base on the root; every rem follows it ----
+  var FS_MIN = 12, FS_MAX = 22, FS_DEF = 15, fsz = parseInt(store('vpt-fs'), 10);
+  if (!(fsz >= FS_MIN && fsz <= FS_MAX)) fsz = FS_DEF;
+  function applyFs() { document.documentElement.style.setProperty('--fs-base', fsz + 'px'); }
+  function setFs(n) { fsz = Math.max(FS_MIN, Math.min(FS_MAX, n)); store('vpt-fs', String(fsz)); applyFs(); }
+  if (fsz !== FS_DEF) applyFs();
+  var fdec = document.getElementById('vpt-fs-dec'), finc = document.getElementById('vpt-fs-inc');
+  if (fdec) fdec.addEventListener('click', function () { setFs(fsz - 1); });
+  if (finc) finc.addEventListener('click', function () { setFs(fsz + 1); });
+
+  // ---- Documentation links: show the page tab, every tab and accordion around the anchor, scroll to it, mark it briefly ----
   function showDoc(id) {
     var t = document.getElementById(id); if (!t) return false;
     if (document.body.classList.contains('dwg-printing')) { var x = document.querySelector('#dwg-printsheet [data-act="exit-print"]'); if (x) x.click(); }
+    if (!internalsOn && t.closest('[data-internal]')) setInternals(true);
     var pane = t.closest('.vpt-pane'); if (pane && pane.hidden) showTab(pane.id);
+    for (var e = t; e && e.nodeType === 1; e = e.parentElement) {
+      if (e.classList.contains('tabpanel')) { var ts = e.parentElement; if (ts && ts.vptSelect) ts.vptSelect(e.getAttribute('data-panel')); }
+      if (e.tagName === 'DETAILS') e.open = true;
+    }
     setTimeout(function () { t.scrollIntoView({ block: 'start' }); t.classList.add('doc-flash'); setTimeout(function () { t.classList.remove('doc-flash'); }, 1800); }, 60);
     return true;
   }
@@ -94,7 +149,7 @@
   function printSheet() {
     var s = document.getElementById('dwg-printsheet'); if (s) return s;
     s = document.createElement('div'); s.id = 'dwg-printsheet'; s.hidden = true;
-    s.innerHTML = '<div class="ps-bar"></div><div class="ps-sheet"><div class="ps-title"></div><div class="ps-draw"></div><div class="ps-legend"></div></div>';
+    s.innerHTML = '<div class="ps-bar"></div><div class="ps-notes" role="status" aria-live="polite"></div><div class="ps-sheet"><div class="ps-title"></div><div class="ps-draw"></div><div class="ps-legend"></div></div>';
     document.body.appendChild(s); return s;
   }
   function initViewer(v) {
@@ -179,6 +234,10 @@
     function enterPrint() {
       if (printing || document.body.classList.contains('dwg-printing')) return;
       var s = printSheet(), tips = (PCFG && PCFG.tips) || {};
+      // what will print, said before the user prints: a symbol picked but not placed, nothing placed, symbols on hidden layers
+      var notes = v.printNotice ? v.printNotice() : [];
+      if (v.onPrint) v.onPrint();
+      s.querySelector('.ps-notes').innerHTML = notes.map(function (n) { return '<p class="ps-note ps-note-' + escH(n[0]) + '">' + escH(n[1]) + '</p>'; }).join('');
       printing = { cur: vb.slice(), ph: document.createComment('dwg-svg'), mode: 'fit' };
       svg.parentNode.insertBefore(printing.ph, svg); s.querySelector('.ps-draw').appendChild(svg);
       var t = function (k) { return tips[k] ? ' class="tip" data-tip="' + escH(tips[k]) + '"' : ''; };
