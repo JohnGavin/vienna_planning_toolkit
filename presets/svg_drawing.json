@@ -1,0 +1,9 @@
+{
+  "name": "svg_drawing",
+  "description": "How DXF content is drawn as SVG for the electrical editor (vpt/dxf_svg.py). One home for these values.",
+  "svg_model_resolution_mm": 1,
+  "svg_paper_resolution_mm": 0.1,
+  "svg_min_units": 2000,
+  "svg_max_units": 2000000,
+  "note": "Integer coordinates: one viewBox unit = svg_model_resolution_mm of the MODEL (when the drawing's units are known), else svg_paper_resolution_mm of the page; the long side has between svg_min_units and svg_max_units units."
+}
