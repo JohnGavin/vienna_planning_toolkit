@@ -28,6 +28,7 @@ let
       ipykernel
       ezdxf
       numpy
+      pillow
       pytest
       shapely;
   };
