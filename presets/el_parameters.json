@@ -1,0 +1,552 @@
+{
+  "name": "el_parameters",
+  "id": "el-params-at",
+  "version": "1.0.0",
+  "description": "The user-adjustable parameters of the electrical editor: the placement rules and their values in both rule sets, the snap radius, the symbol scale and room distance, the colours of the screen (black stage) and of the print (white paper), screen line widths, how the drawing is recoloured, the symbols of the generated examples. ONE home for each value: the Python tools, the page, the print view, the Documentation tab and the tests read them from here (vpt/el_params.py; vpt/el_rules.py and vpt/el_layout.py merge them into what they return). The page's Parameters panel shows, edits, copies, saves and loads this file (schema schema/el_parameters.schema.json). Every value says where it comes from; 'starting value – confirm' means we chose it and nobody has confirmed it.",
+  "sections": {
+    "snap": {
+      "label": "Snapping",
+      "mark": "starting value – confirm",
+      "source": "Our choice; the same for both rule sets.",
+      "values": {
+        "snap_radius_m": {
+          "value": 0.5,
+          "label": "Snap radius",
+          "unit": "m",
+          "note": "Starting value – confirm. A symbol let go within this distance of a suggestion of its kind is placed exactly on the suggestion (and turned to its wall). Hold Alt/Option, or switch Snap off, to place freely. Our choice; the same for both rule sets."
+        }
+      }
+    },
+    "page": {
+      "label": "Symbols on the drawing",
+      "mark": "starting value – confirm",
+      "source": "Our choice.",
+      "values": {
+        "symbol_scale": {
+          "value": 1.0,
+          "label": "Symbol size factor",
+          "unit": "x nominal mm",
+          "note": "Placed symbols are drawn at their nominal size in mm on the storey sheet (presets/el_symbols_at.json) times this factor. Starting value - confirm."
+        },
+        "room_label_max_m": {
+          "value": 2.0,
+          "label": "Room label within (no outline)",
+          "unit": "m",
+          "note": "A symbol outside every room outline is given the nearest room label of a room WITHOUT an outline when that label is at most this far away (method 'nearest label'); else its room is could-not-tell. Starting value - confirm."
+        }
+      }
+    },
+    "colours_screen": {
+      "label": "Colours on screen (black background)",
+      "mark": "starting value – confirm",
+      "source": "Our choice for contrast on black: saturated, one hue per category. Every colour has at least 3:1 contrast against the background (WCAG 2.1 non-text contrast, 1.4.11), checked by the tests. No Austrian colour standard was checked (see standard_note).",
+      "values": {
+        "background": {
+          "value": "#000000",
+          "label": "Background (stage)"
+        },
+        "licht": {
+          "value": "#ffd54f",
+          "label": "Licht / lighting"
+        },
+        "schalter": {
+          "value": "#64b5f6",
+          "label": "Schalter / switches"
+        },
+        "steckdosen": {
+          "value": "#ff6b6b",
+          "label": "Steckdosen / sockets"
+        },
+        "kueche": {
+          "value": "#ce93d8",
+          "label": "Küche/Geräte / kitchen, appliances"
+        },
+        "daten": {
+          "value": "#69f0ae",
+          "label": "Daten/TV / data, TV"
+        },
+        "sicherheit": {
+          "value": "#ffab40",
+          "label": "Sicherheit / safety"
+        },
+        "verteiler": {
+          "value": "#eeff41",
+          "label": "Verteiler / distribution"
+        },
+        "link": {
+          "value": "#00e5ff",
+          "label": "Links (Wirkungslinien)"
+        },
+        "marker": {
+          "value": "#ffffff",
+          "label": "Suggestion marker"
+        },
+        "marker_hit": {
+          "value": "#ffea00",
+          "label": "Suggestion it would snap to"
+        },
+        "selection": {
+          "value": "#ffea00",
+          "label": "Selection box"
+        },
+        "connect_allowed": {
+          "value": "#00e676",
+          "label": "Connect: symbols the switch may control"
+        },
+        "connect_source": {
+          "value": "#ffea00",
+          "label": "Connect: the switch picked"
+        }
+      }
+    },
+    "colours_print": {
+      "label": "Colours in the print (white paper)",
+      "mark": "starting value – confirm",
+      "source": "Dark and saturated colours for paper, at least 3:1 against white (checked by the tests). No Austrian colour standard was checked (see standard_note).",
+      "values": {
+        "background": {
+          "value": "#ffffff",
+          "label": "Paper"
+        },
+        "licht": {
+          "value": "#7a5200",
+          "label": "Licht / lighting"
+        },
+        "schalter": {
+          "value": "#1a4f9c",
+          "label": "Schalter / switches"
+        },
+        "steckdosen": {
+          "value": "#b0141f",
+          "label": "Steckdosen / sockets"
+        },
+        "kueche": {
+          "value": "#6d2f86",
+          "label": "Küche/Geräte / kitchen, appliances"
+        },
+        "daten": {
+          "value": "#1d6b44",
+          "label": "Daten/TV / data, TV"
+        },
+        "sicherheit": {
+          "value": "#8a3a00",
+          "label": "Sicherheit / safety"
+        },
+        "verteiler": {
+          "value": "#000000",
+          "label": "Verteiler / distribution"
+        },
+        "link": {
+          "value": "#1a4f9c",
+          "label": "Links (Wirkungslinien)"
+        },
+        "marker": {
+          "value": "#5f6368",
+          "label": "Suggestion marker (never printed)"
+        },
+        "marker_hit": {
+          "value": "#0b57d0",
+          "label": "Suggestion it would snap to (never printed)"
+        },
+        "selection": {
+          "value": "#0b57d0",
+          "label": "Selection box (never printed)"
+        },
+        "connect_allowed": {
+          "value": "#137333",
+          "label": "Connect highlight (never printed)"
+        },
+        "connect_source": {
+          "value": "#0b57d0",
+          "label": "Connect: the switch picked (never printed)"
+        }
+      }
+    },
+    "drawing_screen": {
+      "label": "Drawing on screen (light on black)",
+      "mark": "starting value – confirm",
+      "source": "Our choice. Each CAD colour keeps its hue (so Bestand, Abbruch and Neubau stay apart by colour as in the CAD file) with less saturation; its lightness is turned round into the ranges below: dark lines become light, white fills become dark.",
+      "values": {
+        "stroke_lightness_min": {
+          "value": 0.62,
+          "label": "Lines: lightest-in-CAD becomes",
+          "unit": "HSL lightness 0–1"
+        },
+        "stroke_lightness_max": {
+          "value": 0.9,
+          "label": "Lines: darkest-in-CAD becomes",
+          "unit": "HSL lightness 0–1"
+        },
+        "fill_lightness_min": {
+          "value": 0.0,
+          "label": "Fills: lightest-in-CAD becomes",
+          "unit": "HSL lightness 0–1"
+        },
+        "fill_lightness_max": {
+          "value": 0.4,
+          "label": "Fills: darkest-in-CAD becomes",
+          "unit": "HSL lightness 0–1"
+        },
+        "saturation": {
+          "value": 0.55,
+          "label": "Saturation kept",
+          "unit": "factor 0–1"
+        }
+      }
+    },
+    "drawing_print": {
+      "label": "Drawing in the print (dark on white)",
+      "mark": "starting value – confirm",
+      "source": "Our choice: the drawing printed in dark, muted colours so that the symbols stand out; hues kept (Bestand, Abbruch, Neubau stay apart), lightness kept in order.",
+      "values": {
+        "stroke_lightness_min": {
+          "value": 0.0,
+          "label": "Lines: darkest-in-CAD becomes",
+          "unit": "HSL lightness 0–1"
+        },
+        "stroke_lightness_max": {
+          "value": 0.45,
+          "label": "Lines: lightest-in-CAD becomes",
+          "unit": "HSL lightness 0–1"
+        },
+        "fill_lightness_min": {
+          "value": 0.72,
+          "label": "Fills: darkest-in-CAD becomes",
+          "unit": "HSL lightness 0–1"
+        },
+        "fill_lightness_max": {
+          "value": 1.0,
+          "label": "Fills: lightest-in-CAD becomes",
+          "unit": "HSL lightness 0–1"
+        },
+        "saturation": {
+          "value": 0.5,
+          "label": "Saturation kept",
+          "unit": "factor 0–1"
+        }
+      }
+    },
+    "screen_lines": {
+      "label": "Line widths and marker size on screen",
+      "mark": "starting value – confirm",
+      "source": "Our choice. Screen pixels at every zoom (non-scaling strokes), so a line never gets thinner than this when the whole storey is shown. The print uses the mm widths of print_lines and of the symbol set.",
+      "values": {
+        "symbol_stroke_px": {
+          "value": 1.75,
+          "label": "Symbol lines",
+          "unit": "px"
+        },
+        "link_stroke_px": {
+          "value": 2.0,
+          "label": "Link lines",
+          "unit": "px"
+        },
+        "link_dash_px": {
+          "value": [
+            8,
+            5
+          ],
+          "label": "Link dash (on, off)",
+          "unit": "px"
+        },
+        "marker_radius_px": {
+          "value": 10,
+          "label": "Suggestion marker radius",
+          "unit": "px"
+        },
+        "marker_stroke_px": {
+          "value": 2,
+          "label": "Suggestion marker line",
+          "unit": "px"
+        },
+        "marker_opacity": {
+          "value": 0.85,
+          "label": "Suggestion marker opacity (other rooms)",
+          "unit": "0–1"
+        },
+        "selection_stroke_px": {
+          "value": 1.5,
+          "label": "Selection box line",
+          "unit": "px"
+        },
+        "dim_opacity": {
+          "value": 0.3,
+          "label": "Connect: symbols the switch cannot control",
+          "unit": "0–1"
+        }
+      }
+    },
+    "print_lines": {
+      "label": "Link lines in the print",
+      "mark": "starting value – confirm",
+      "source": "Our choice: a thin dashed line on the A3 sheet, in mm on the storey sheet (scaled with the drawing).",
+      "values": {
+        "link_stroke_mm": {
+          "value": 0.25,
+          "label": "Link line",
+          "unit": "mm"
+        },
+        "link_dash_mm": {
+          "value": [
+            1.5,
+            1.0
+          ],
+          "label": "Link dash (on, off)",
+          "unit": "mm"
+        }
+      }
+    },
+    "examples": {
+      "label": "Examples (generated)",
+      "mark": "starting value – confirm",
+      "source": "Our choice of symbols for the generated examples (vpt/el_examples.py); positions come from the placement suggestions, never typed in.",
+      "values": {
+        "simple_sockets": {
+          "value": 2,
+          "label": "Simple example: sockets",
+          "unit": "count"
+        },
+        "simple_doors": {
+          "value": 2,
+          "label": "Simple example: doors of its room",
+          "unit": "count"
+        },
+        "socket_code": {
+          "value": "SS2",
+          "label": "Socket symbol",
+          "unit": "symbol code"
+        },
+        "kitchen_codes": {
+          "value": [
+            "HE",
+            "GS",
+            "BO",
+            "KS"
+          ],
+          "label": "Kitchen outlets, in turn",
+          "unit": "symbol codes"
+        },
+        "smoke_code": {
+          "value": "RM",
+          "label": "Smoke alarm symbol",
+          "unit": "symbol code"
+        },
+        "smoke_offset_m": {
+          "value": 0.6,
+          "label": "Smoke alarm: beside the ceiling light",
+          "unit": "m"
+        },
+        "board_code": {
+          "value": "VT",
+          "label": "Distribution board symbol",
+          "unit": "symbol code"
+        }
+      }
+    }
+  },
+  "standard_note": "No Austrian colour standard for the colours of installation-plan symbols was checked: these colours are starting values. Confirm them with the Elektroplaner and against the drawing conventions of ÖNORM A 6240 (to verify: its text was not available, so it is not known whether it sets colours for electrical installation plans).",
+  "contrast_min": 3.0,
+  "contrast_min_note": "WCAG 2.1 success criterion 1.4.11 (non-text contrast): 3:1 for graphical objects. Every symbol, link, marker and selection colour of both palettes is checked against its palette's background by the tests.",
+  "rules": {
+    "label": "Placement rules",
+    "note": "Two rule sets with the same keys. A rule whose value is null gives no suggestion and its hint says 'no value yet'. The suggestions are computed by vpt/el_rules.py when the plan file is exported (tools/export_plan.py): a changed geometry value takes effect on the page after the plan is exported again with this file.",
+    "default_rule_set": "starting",
+    "rule_sets": [
+      {
+        "id": "starting",
+        "name": "starting values (to confirm)",
+        "status": "starting value – confirm",
+        "note": "Values we chose to get started. None is taken from a standard: each says where the idea comes from. Replace them with the Elektroplaner's values (the second set) once they are known."
+      },
+      {
+        "id": "elektroplaner",
+        "name": "Elektroplaner values",
+        "status": "no values yet: to be provided by the Elektroplaner",
+        "note": "Every value is null until the Elektroplaner gives one; fill in value and source here. While a value is null its rule gives no suggestion and its hint says 'no value yet'."
+      }
+    ],
+    "definitions": {
+      "switch_from_frame_m": {
+        "label": "Switch: distance from the door frame",
+        "unit": "m (range: from, to)",
+        "kind": "switch",
+        "text": "A switch or push-button is suggested beside each door of a room, on the room's side, on the handle side (the side opposite the hinge, from the door swing in the plan file), this far along the wall from the edge of the opening. The suggestion sits in the middle of the range."
+      },
+      "switch_inset_m": {
+        "label": "Switch: into the room (swing side)",
+        "unit": "m",
+        "kind": "switch",
+        "text": "How far from the door's opening line (the chord of its swing arc, which lies on the wall face of the side the door opens into) the suggestion lies, on the side the door opens into."
+      },
+      "switch_inset_other_m": {
+        "label": "Switch: into the room (other side)",
+        "unit": "m",
+        "kind": "switch",
+        "text": "The same on the other side of the door, where the wall's thickness lies between the opening line and the room (the plan file does not know the wall thickness)."
+      },
+      "socket_min_piece_m": {
+        "label": "Socket: shortest wall piece",
+        "unit": "m",
+        "kind": "socket",
+        "text": "A socket is suggested at the centre of every piece of the room's outline between its door openings; pieces shorter than this get none."
+      },
+      "socket_inset_m": {
+        "label": "Socket: off the wall face",
+        "unit": "m",
+        "kind": "socket",
+        "text": "How far into the room from the outline (the wall face) the suggestion lies, so the symbol sits on the wall."
+      },
+      "door_cut_max_m": {
+        "label": "Door opening cuts a wall piece within",
+        "unit": "m",
+        "kind": "socket",
+        "text": "A door's opening cuts a piece of the room's outline when the opening runs along it and lies at most this far from it (about one wall thickness). Used for sockets and kitchen outlets."
+      },
+      "ceiling_light_at": {
+        "label": "Ceiling light: where",
+        "unit": "",
+        "kind": "light",
+        "text": "A ceiling light is suggested at the room's centre: the centre of its outline, else (no outline, or the centre lies outside an L-shaped outline) the room label's point."
+      },
+      "kitchen_keywords": {
+        "label": "Kitchen: label words",
+        "unit": "words (case ignored)",
+        "kind": "kitchen",
+        "text": "A room whose label contains one of these words is a kitchen: kitchen and appliance outlets are suggested along its wall pieces."
+      },
+      "kitchen_spacing_m": {
+        "label": "Kitchen outlets: spacing",
+        "unit": "m",
+        "kind": "kitchen",
+        "text": "Kitchen and appliance outlets are suggested along each wall piece of a kitchen, this far apart."
+      },
+      "kitchen_end_margin_m": {
+        "label": "Kitchen outlets: from the piece's ends",
+        "unit": "m",
+        "kind": "kitchen",
+        "text": "The first and last kitchen suggestion of a wall piece lie this far from its ends (doors, corners)."
+      },
+      "hint_switch_near_door_m": {
+        "label": "Hint: a switch counts for a door within",
+        "unit": "m",
+        "kind": "hint",
+        "text": "Layout hint 'door without a switch': a door of a room with a light counts as having a switch when a switch or push-button symbol lies within this distance of the door's opening."
+      }
+    },
+    "values": {
+      "starting": {
+        "switch_from_frame_m": {
+          "value": [
+            0.1,
+            0.2
+          ],
+          "mark": "starting value – confirm",
+          "source": "Idea: on German and Austrian plans a light switch usually sits beside the door on the handle side, about a hand's width from the frame (the installation-zone convention known from German practice, DIN 18015-3). Not checked against that standard or against any Austrian rule."
+        },
+        "switch_inset_m": {
+          "value": 0.15,
+          "mark": "starting value – confirm",
+          "source": "Our choice, so that the symbol stands just inside the room on the plan; a drawing convenience, not from any standard."
+        },
+        "switch_inset_other_m": {
+          "value": 0.35,
+          "mark": "starting value – confirm",
+          "source": "Our guess: a typical inner wall (about 0.12 to 0.25 m) plus a little; not measured and not from any standard."
+        },
+        "socket_min_piece_m": {
+          "value": 0.6,
+          "mark": "starting value – confirm",
+          "source": "Our guess: shorter pieces are usually returns and niches. Not from any standard."
+        },
+        "socket_inset_m": {
+          "value": 0.1,
+          "mark": "starting value – confirm",
+          "source": "Our choice, so that the symbol sits on the wall on the plan; a drawing convenience, not from any standard."
+        },
+        "door_cut_max_m": {
+          "value": 0.5,
+          "mark": "starting value – confirm",
+          "source": "Our guess at a thick Altbau wall plus a margin; not measured."
+        },
+        "ceiling_light_at": {
+          "value": "centre",
+          "mark": "starting value – confirm",
+          "source": "Idea: one ceiling outlet in the middle of the room is the usual default on plans; the Elektroplaner may plan more lights or another position."
+        },
+        "kitchen_keywords": {
+          "value": [
+            "küche",
+            "kueche",
+            "kochen",
+            "kochnische",
+            "teeküche",
+            "kitchen"
+          ],
+          "mark": "starting value – confirm",
+          "source": "Our list of German and English words for a kitchen; check it against the room labels of the drawing."
+        },
+        "kitchen_spacing_m": {
+          "value": 0.6,
+          "mark": "starting value – confirm",
+          "source": "Idea: the usual kitchen cabinet module is 60 cm wide, so one outlet per module. Not from an electrical standard."
+        },
+        "kitchen_end_margin_m": {
+          "value": 0.3,
+          "mark": "starting value – confirm",
+          "source": "Idea: half a 60 cm cabinet module. Not from an electrical standard."
+        },
+        "hint_switch_near_door_m": {
+          "value": 1.0,
+          "mark": "starting value – confirm",
+          "source": "Our choice: a switch more than about an arm's length from the door is not 'at the door'. Not from any standard."
+        }
+      },
+      "elektroplaner": {
+        "switch_from_frame_m": {
+          "value": null,
+          "source": null
+        },
+        "switch_inset_m": {
+          "value": null,
+          "source": null
+        },
+        "switch_inset_other_m": {
+          "value": null,
+          "source": null
+        },
+        "socket_min_piece_m": {
+          "value": null,
+          "source": null
+        },
+        "socket_inset_m": {
+          "value": null,
+          "source": null
+        },
+        "door_cut_max_m": {
+          "value": null,
+          "source": null
+        },
+        "ceiling_light_at": {
+          "value": null,
+          "source": null
+        },
+        "kitchen_keywords": {
+          "value": null,
+          "source": null
+        },
+        "kitchen_spacing_m": {
+          "value": null,
+          "source": null
+        },
+        "kitchen_end_margin_m": {
+          "value": null,
+          "source": null
+        },
+        "hint_switch_near_door_m": {
+          "value": null,
+          "source": null
+        }
+      }
+    }
+  }
+}

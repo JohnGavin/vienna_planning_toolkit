@@ -1,0 +1,86 @@
+{
+  "name": "el_rules_at",
+  "description": "The structure of the editor's placement help, switch-light links and layout hints (vpt/el_rules.py, vpt/el_links.py, the editor page): which symbols each kind of suggestion is for, the switching names, the links layer. The rule definitions, both rule sets and their values, and the snap radius are parameters: presets/el_parameters.json (rules, sections.snap); vpt/el_rules.py load() merges them in.",
+  "suggest": {
+    "switch": {
+      "name": "Switch beside a door",
+      "codes": [
+        "SA",
+        "SW",
+        "SK",
+        "ST"
+      ],
+      "values": [
+        "switch_from_frame_m",
+        "switch_inset_m",
+        "switch_inset_other_m"
+      ]
+    },
+    "socket": {
+      "name": "Socket at the centre of a wall piece",
+      "codes": [
+        "SO",
+        "SS1",
+        "SS2"
+      ],
+      "values": [
+        "socket_min_piece_m",
+        "socket_inset_m",
+        "door_cut_max_m"
+      ]
+    },
+    "light": {
+      "name": "Ceiling light at the room centre",
+      "codes": [
+        "LD"
+      ],
+      "values": [
+        "ceiling_light_at"
+      ]
+    },
+    "kitchen": {
+      "name": "Kitchen outlets along the walls of a kitchen",
+      "codes": [
+        "HE",
+        "GS",
+        "BO",
+        "KS",
+        "WM"
+      ],
+      "values": [
+        "kitchen_keywords",
+        "kitchen_spacing_m",
+        "kitchen_end_margin_m",
+        "socket_inset_m",
+        "door_cut_max_m"
+      ]
+    }
+  },
+  "switching": {
+    "switch_category": "schalter",
+    "light_category": "licht",
+    "one_way": "SA",
+    "two_way": "SW",
+    "intermediate": "SK",
+    "push_button": "ST",
+    "names": {
+      "1": "Ausschaltung",
+      "2": "Wechselschaltung",
+      "3": "Kreuzschaltung",
+      "push": "Tasterschaltung"
+    },
+    "names_en": {
+      "1": "one-way switching",
+      "2": "two-way switching",
+      "3": "intermediate switching",
+      "push": "push-button switching"
+    },
+    "note": "A light group is a set of lights that share switches (switches and lights joined by links). The page PROPOSES the switch type from the number of switches in the group: one switch: Ausschaltung (one one-way switch); two: Wechselschaltung (two two-way switches); three or more: Kreuzschaltung (two two-way switches and an intermediate switch for every further place). Apply swaps the placed switch symbols to the proposed codes; nothing changes without it. A group with a push-button gets no proposal: push-buttons work an impulse relay or a timer, whatever their number (the Elektroplaner decides). This is the textbook wiring rule; how the group is actually wired is for the Elektroplaner."
+  },
+  "links": {
+    "layer": "Elektro – Verbindungen",
+    "name_de": "Wirkungslinie",
+    "name_en": "control line (which switch works which light)",
+    "note": "A dashed line from a switch or push-button to each light it works, on its own layer. Drawn between the symbols' insertion points (straight lines, not cable routes). Colour and width: presets/el_parameters.json."
+  }
+}
