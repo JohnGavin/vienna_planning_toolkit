@@ -95,3 +95,26 @@ def test_export_tool_writes_and_reports(tmp_path):
     bad.write_text("not a dxf", encoding="utf-8")
     assert export_plan.main([str(bad), "--output", str(tmp_path / "bad.plan.json")]) == 3
     assert not (tmp_path / "bad.plan.json").exists()
+
+
+def _layers_with_entities(doc) -> set:
+    """Layers that hold at least one model-space entity (the entity's own layer)."""
+    return {e.dxf.layer for e in doc.modelspace()}
+
+
+def _missing_from_plan(doc, st) -> set:
+    return _layers_with_entities(doc) - {x["layer"] for x in st["layers"]}
+
+
+def test_every_dxf_layer_with_entities_is_in_the_plan_layer_list(exported, doc):
+    """Including the demolition (Abbruch) and new-build (Neubau) wall layers, which the room logic leaves out but the
+    drawing still shows; and no stray layer "0" (dimension parts used to land there)."""
+    st = exported["storeys"][0]
+    assert _missing_from_plan(doc, st) == set()
+    names = {x["layer"] for x in st["layers"]}
+    assert any("_Abbruch_" in n for n in names) and any("_Neubau_" in n for n in names)
+    assert "0" not in names
+    assert all(x["paths"] > 0 for x in st["layers"] if _layers_with_entities(doc) >= {x["layer"]} and "Plankopf" not in x["layer"])
+    # falsified: a list without the Abbruch layer is reported
+    broken = dict(st, layers=[x for x in st["layers"] if "_Abbruch_" not in x["layer"]])
+    assert _missing_from_plan(doc, broken) == {n for n in names if "_Abbruch_" in n}

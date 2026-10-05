@@ -22,6 +22,7 @@ artifact host would wrap it):
       The demo: no print view to reach.
   C13 every Documentation anchor (#doc-..., from the page's links and tests/doc_anchors.txt) opens its tab, sub-tab and
       accordion and is visible; a popup's More link clicked with real mouse events opens the right tab and sub-tab
+  C14 a socket rotated by 180 degrees: its drawing is turned, its letters ("2") are not (net rotation 0 against the page)
 Exit codes: 0 PASS, 1 FAIL, 3 INDETERMINATE (Chrome missing or a step could not run). Results: _scratch/check_<variant>.json.
 """
 from __future__ import annotations
@@ -316,6 +317,26 @@ def run(variant: str) -> dict:
         c1 = cyan(b.screenshot(box)) if box else None
         ok4 = bool(links) and len(links) == 1 and links[0]["from"] == sid_s and links[0]["to"] == sid_l and c1 is not None and c1 > max(10, 3 * (c0 or 0))
         put("C4", ok4, f"links {links}; link-coloured pixels at the midpoint {c0} before, {c1} after", before=c0, after=c1)
+        # ---- C14 a symbol's letters stay upright when the symbol is rotated (socket "2", rotated by 180 degrees, falsified by
+        #      measuring the symbol's own drawing group, which must be turned by 180 while its letters are not)
+        sid14, _, _ = drag_symbol("SS2", 0.25, 0.80)
+        if sid14:
+            sel14 = f".el-page[data-storey=\"{STOREY}\"] .el-sym[data-id=\"{sid14}\"]"
+            probe14 = ("(function () { var ang = function (e) { var m = e.getScreenCTM(); return Math.atan2(m.b, m.a) * 180 / Math.PI; };"
+                       f" var g = document.querySelector('{sel14}'), root = ang(g.ownerSVGElement), norm = function (a) {{ a = (a - root) % 360; return a < 0 ? a + 360 : a; }};"
+                       " var ts = g.querySelectorAll('text'); return { n: ts.length, text: ts.length ? norm(ang(ts[0])) : null, drawing: norm(ang(g.querySelector('.el-symg'))) }; })()")
+            b.js(f"{P}.select('{sid14}')")
+            for _ in range(2):
+                b.js(f"document.querySelector('.el-page[data-storey=\"{STOREY}\"] [data-el=\"rotate\"]').click()")
+            rot14 = b.js(f"{P}.layout().symbols.filter(function (s) {{ return s.id === '{sid14}'; }})[0].rotation")
+            m14 = b.js(probe14)
+            up = lambda a: a is not None and min(a, 360 - a) < 0.5      # noqa: E731 - upright: no net turn
+            put("C14", rot14 == 180 and m14["n"] >= 1 and up(m14["text"]) and abs(m14["drawing"] - 180) < 0.5,
+                f"socket 2 rotated {rot14} degrees: its drawing is turned {m14['drawing']:.1f} degrees, its {m14['n']} letter(s) {m14['text']} (upright: 0)", measure=m14)
+            b.js(f"{P}.select('{sid14}')")
+            b.js(f"document.querySelector('.el-page[data-storey=\"{STOREY}\"] [data-el=\"delete\"]').click()")
+        else:
+            put("C14", None, "the socket could not be placed with a real drag")
         # ---- C12 print view: the placed symbols (SS1, LD, SA above, placed by real pointer events) on paper and in the PDF
         if variant == "pages":
             ok12, d12, x12 = print_check(b, P, lib)
