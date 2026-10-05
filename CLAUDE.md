@@ -6,7 +6,7 @@ Global rules: `~/.claude/CLAUDE.md`. This file only adds project specifics.
 |-------|-------|
 | Environment | dev |
 | Visibility | intended public: generic tools only |
-| Targets pipeline | `_targets.R` (preset -> DXF -> validation -> plan file -> editor pages) |
+| Targets pipeline | `_targets.R` (preset -> DXF -> validation -> plan file -> editor pages, Elektro DXF) |
 | Languages | Python (ezdxf, shapely) for drawing tools and the page build; plain JS/CSS for the editor page; R `targets` for orchestration |
 
 ## Purpose
@@ -29,12 +29,14 @@ tools/synthetic_flat.py       DXF generator (drawing logic only, no literals)
 tools/validate_flat.py        drawing validator; exit 0 PASS / 1 FAIL / 3 INDETERMINATE
 samples/synthetic_flat.dxf    generated sample (committed; tests check it is current)
 samples/synthetic_flat.plan.json   its plan file for the editor (tools/export_plan.py)
-presets/plan_extract.json     storeys, rooms, walls, doors: how they are found in a DXF
+samples/synthetic_flat_elektro.dxf its complex example written as Elektro layers (tools/export_layout_dxf.py)
+presets/plan_extract.json     storeys, rooms, walls, doors, windows: how they are found in a DXF
+presets/dxf_export.json       layer names and texts of the Elektro DXF export
 presets/el_*.json, editor_docs.json   symbols, parameters (rules, colours), page settings, page texts (one home each)
 schema/                       JSON Schemas: plan file, layout file, parameter file
 vpt/                          Python package (dxf_svg, plan_extract, plan, el_*, docs, editor_page)
 editor/                       the page's CSS and JS; `// @pages-only-start/end` regions are left out of the artifact
-tools/export_plan.py, build_editor.py, check_editor.py (+ cdp.py)   plan export, page build (+ gates), headless Chrome check
+tools/export_plan.py, export_layout_dxf.py, build_editor.py, check_editor.py (+ cdp.py)   plan export, layout -> DXF, page build (+ gates), headless Chrome/Edge check
 site/, artifact/              built pages (committed; CI fails when out of date)
 tests/                        pytest suite incl. falsification tests
 _targets.R                    pipeline: preset + generator -> DXF -> validation -> plan file -> pages

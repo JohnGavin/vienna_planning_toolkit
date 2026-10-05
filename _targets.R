@@ -1,4 +1,5 @@
-# Pipeline: preset + generator -> synthetic flat DXF -> validation result.
+# Pipeline: preset + generator -> synthetic flat DXF -> validation result -> plan file -> editor pages, and the complex
+# example as an Elektro DXF.
 # Run inside the project shell:
 #   nix-shell default.nix --run "Rscript -e 'targets::tar_make()'"
 library(targets)
@@ -80,6 +81,29 @@ list(
         cli::cli_abort(c("plan export did not pass (exit {res$status})", res$output))
       }
       "samples/synthetic_flat.plan.json"
+    },
+    format = "file"
+  ),
+  # the complex example written into a copy of the sample DXF as Elektro layers (what the Elektroplaner gets)
+  tar_target(
+    elektro_sources,
+    c("vpt/dxf_export.py", "presets/dxf_export.json", "tools/export_layout_dxf.py"),
+    format = "file"
+  ),
+  tar_target(
+    flat_elektro_dxf,
+    {
+      elektro_sources
+      editor_sources
+      res <- run_python(c(
+        "tools/export_layout_dxf.py", "--dxf", flat_dxf, "--plan", flat_plan,
+        "--example", "complex", "--out", "samples/synthetic_flat_elektro.dxf"
+      ))
+      # 0 written and verified; 1 refused or not verified, 3 could not tell: stop the pipeline
+      if (res$status != 0L) {
+        cli::cli_abort(c("Elektro DXF export did not pass (exit {res$status})", res$output))
+      }
+      "samples/synthetic_flat_elektro.dxf"
     },
     format = "file"
   ),

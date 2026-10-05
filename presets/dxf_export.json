@@ -1,0 +1,30 @@
+{
+  "name": "dxf_export",
+  "description": "How tools/export_layout_dxf.py writes a layout into a copy of its DXF for the Elektroplaner (vpt/dxf_export.py). The whole source drawing is kept unchanged and the layout is ADDED on its own layers, so the Elektroplaner can overlay or switch it off. Layer colours are not set here: they come from the print palette of presets/el_parameters.json (nearest AutoCAD colour index, plus the exact colour as true colour). Every value is a starting value to confirm with the Elektroplaner.",
+  "status": "starting value – confirm",
+  "layers": {
+    "licht": "E_Licht",
+    "schalter": "E_Schalter",
+    "steckdosen": "E_Steckdosen",
+    "kueche": "E_Kueche_Geraete",
+    "daten": "E_Daten_TV",
+    "sicherheit": "E_Sicherheit",
+    "verteiler": "E_Verteiler",
+    "links": "E_Verbindungen",
+    "note": "E_Hinweis"
+  },
+  "layers_note": "One DXF layer per symbol category of the symbol library (by category key), plus the links (Wirkungslinien) and the note. DXF-safe names: ASCII letters, digits and underscores only (name_regex), so every CAD program accepts them.",
+  "name_regex": "^[A-Za-z0-9_]+$",
+  "block_prefix": "E_SYM_",
+  "linetype": "E_VERBINDUNG",
+  "linetype_note": "The links' dashed linetype, defined in the written file from the print dash of presets/el_parameters.json (print_lines.link_dash_mm, in mm on the sheet, scaled to drawing units).",
+  "attribs": ["CODE", "NAME_DE", "ROOM", "VERIFIED", "SYMBOL_ID"],
+  "attribs_note": "Attributes of every placed symbol (invisible on the drawing, shown in the CAD program's properties): its code, German name, room id (empty: could not tell), VERIFIED = false while the symbol set is unverified, and its id in the layout file.",
+  "attrib_height_mm": 1.5,
+  "text_height_mm": 3.0,
+  "note_offset_mm": 10.0,
+  "note_template": "Elektro symbols UNVERIFIED ({set_id} v{set_version}, IEC 60617 draft set, not checked against the standard): layout {layout_file}, storey {storey}, {n} symbols, {l} links. Written by tools/export_layout_dxf.py.",
+  "note_note": "A text on the note layer, note_offset_mm above the top left of the placed symbols (mm on the sheet).",
+  "position_tol_mm": 1.0,
+  "position_tol_note": "The written file is read again: every symbol must be there, on its layer, within this distance (mm in the drawing's units) of its place in the layout."
+}

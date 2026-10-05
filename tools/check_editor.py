@@ -22,7 +22,14 @@ artifact host would wrap it):
       The demo: no print view to reach.
   C13 every Documentation anchor (#doc-..., from the page's links and tests/doc_anchors.txt) opens its tab, sub-tab and
       accordion and is visible; a popup's More link clicked with real mouse events opens the right tab and sub-tab
-Exit codes: 0 PASS, 1 FAIL, 3 INDETERMINATE (Chrome missing or a step could not run). Results: _scratch/check_<variant>.json.
+  C14 the page's layout checks H1-H9 equal vpt/el_checks.py on both examples, both rule sets, and each example without its
+      cooker outlet (falsified: removing it must turn H6 of the complex example from ok to 'to look at' in both); the panel
+      shows nine checks, their counts and the plan's windows
+
+Usage: check_editor.py [pages|artifact ...] [--browser chrome|edge] [--scheme light|dark] [--size 1440x900]
+The page opens in the given colour scheme (default light) at the given window size; C7/C8 cover both schemes either way.
+Exit codes: 0 PASS, 1 FAIL, 3 INDETERMINATE (browser missing or a step could not run).
+Results: _scratch/check_<variant>[_<browser>_<scheme>].json.
 """
 from __future__ import annotations
 
@@ -41,7 +48,7 @@ import re  # noqa: E402
 import zlib  # noqa: E402
 
 import cdp  # noqa: E402
-from vpt import el_layout, el_params, el_rules, el_symbols  # noqa: E402
+from vpt import el_checks, el_layout, el_params, el_rules, el_symbols  # noqa: E402
 
 SCRATCH = ROOT / "_scratch"
 PAGES = {"pages": ROOT / "site" / "index.html", "artifact": ROOT / "artifact" / "electrical_planner.html"}
@@ -231,8 +238,38 @@ def stage_rect(b) -> list[float]:
                 "var r = s.getBoundingClientRect(); return [r.left, r.top, r.width, Math.min(r.height, window.innerHeight - r.top)]; })()")
 
 
-def run(variant: str) -> dict:
-    res: dict = {"variant": variant, "checks": {}, "status": "PASS"}
+def checks_mirror(b, P: str, plan: dict, lib: dict) -> tuple:
+    """C14: see the module docstring. Returns (ok, detail)."""
+    st = next(s for s in plan["storeys"] if s["key"] == STOREY)
+    rules, sdef, k = el_rules.load(), el_symbols.default_set(lib), plan["drawing"]["units_per_m"]
+    cooker = set(rules["checks"]["cooker_codes"])
+    diffs, n, h6 = [], 0, {}
+    for ex_id in ("simple", "complex"):
+        ex = st["examples"][ex_id]
+        for what, syms in (("as generated", ex["symbols"]), ("without cooker outlet", [s for s in ex["symbols"] if s["code"] not in cooker])):
+            for rs in rules["rule_sets"]:
+                py = el_checks.checks(syms, ex["links"], st["rooms"], st["doors"], k, rules, rs["id"], sdef, True)
+                js = b.js(f"{P}.checksOf({json.dumps(syms)}, {json.dumps(ex['links'])}, {json.dumps(rs['id'])})")
+                n += 1
+                if json.loads(json.dumps(py)) != js:
+                    bad = [p["id"] for p, j in zip(py, js or []) if json.loads(json.dumps(p)) != j]
+                    diffs.append(f"{ex_id} {what} {rs['id']}: {bad or 'shape'}")
+                if ex_id == "complex" and rs["id"] == "starting":
+                    h6[what] = (py[5]["status"], js[5]["status"] if js else None)
+    red = h6.get("as generated") == ("match", "match") and h6.get("without cooker outlet") == ("different", "different")
+    panel = b.js(f"(function () {{ var p = document.querySelector('.el-page[data-storey=\"{STOREY}\"]');"
+                 " return { n: p.querySelectorAll('.el-hint[data-hint]').length, st: Array.prototype.map.call(p.querySelectorAll('.el-hint[data-hint]'), function (l) { return l.getAttribute('data-status'); }),"
+                 " counts: p.querySelector('.el-check-counts').textContent, windows: p.querySelector('.el-windows').getAttribute('data-windows') }; })()")
+    cur = b.js(f"{P}.hints()")
+    want_counts = el_checks.counts(cur)
+    counts_ok = panel["counts"] == f"({want_counts['match']} ok · {want_counts['different']} to look at · {want_counts['could-not-tell']} could not tell)"
+    ok = not diffs and red and panel["n"] == len(el_checks.IDS) and panel["st"] == [c["status"] for c in cur] and counts_ok and panel["windows"] == str(len(st["windows"]))
+    return (ok if red else None), (f"{n} comparisons page vs vpt/el_checks.py, {len(diffs)} different {diffs[:3]}; H6 complex (py, page): {h6} (falsified by removing the cooker outlet);"
+                                   f" panel {panel['n']} checks {panel['counts']}, windows {panel['windows']}")
+
+
+def run(variant: str, browser: str = "chrome", scheme: str = "light", size: tuple = (1400, 1000)) -> dict:
+    res: dict = {"variant": variant, "browser": browser, "scheme": scheme, "size": list(size), "checks": {}, "status": "PASS"}
     url = page_url(variant)
 
     def put(cid: str, ok, detail: str, **extra):
@@ -241,9 +278,11 @@ def run(variant: str) -> dict:
     lib, schema = el_symbols.load(), el_layout.load_schema()
     plan = json.loads((ROOT / "samples" / "synthetic_flat.plan.json").read_text(encoding="utf-8"))
     sha = plan["drawing"]["sha256"]
-    with cdp.Browser(size=(1400, 1000)) as b:
-        b.colour_scheme("light")
+    with cdp.Browser(size=size, binary=cdp.BROWSERS[browser]) as b:
+        b.viewport(*size)
+        b.colour_scheme(scheme)
         b.open(url, settle=1.5)
+        res["user_agent"] = b.js("navigator.userAgent")          # which browser actually ran (Edge says Edg/)
         P = f"window.elPages['{STOREY}']"
         # ---- C2 working state
         st = b.js(f"(function () {{ var p = {P}; var g = p.groups(); return {{ ex: p.exampleShown(), groups: g.length, type: g.length ? p.proposal(0).type : null,"
@@ -253,6 +292,9 @@ def run(variant: str) -> dict:
         ok2 = (st["ex"] == "simple" and st["groups"] == 1 and st["type"] == "2" and st["matches"] and st["banner"]
                and "synthetic flat, not real data" in st["text"] and st["synth"] and "keine realen Gebäudedaten" in st["synthText"])
         put("C2", ok2, f"example {st['ex']}, {st['n']} symbols, {st['groups']} group(s) of type {st['type']} (matches {st['matches']}), banner {st['text']!r}")
+        # ---- C14 layout checks: the page mirrors vpt/el_checks.py
+        ok14, d14 = checks_mirror(b, P, plan, lib)
+        put("C14", ok14, d14)
         # ---- C1 drawing visible, falsified by hiding the drawing layers and the symbols
         r = stage_rect(b)
         n_on = b.pixels(b.screenshot(r), (0, 0, 0))
@@ -273,7 +315,7 @@ def run(variant: str) -> dict:
             btn = b.js(f"(function () {{ var e = document.querySelector('.el-page[data-storey=\"{STOREY}\"] .el-sym-btn[data-code=\"{code}\"]'); e.scrollIntoView({{block: 'nearest'}});"
                        " var r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()")
             rr = b.js(f"(function () {{ var r = document.querySelector('.el-page[data-storey=\"{STOREY}\"] svg.el-svg').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }})()")
-            x1, y1 = rr[0] + rr[2] * fx, rr[1] + min(rr[3], 1000 - rr[1]) * fy
+            x1, y1 = rr[0] + rr[2] * fx, rr[1] + min(rr[3], size[1] - rr[1]) * fy
             before = b.js(f"{P}.layout().symbols.length")
             b.drag(btn[0], btn[1], x1, y1, steps=10)
             syms = b.js(f"{P}.layout().symbols")
@@ -425,18 +467,35 @@ def run(variant: str) -> dict:
 
 
 def main(argv=None) -> int:
-    variants = (argv or sys.argv[1:]) or list(PAGES)
+    import argparse
+    ap = argparse.ArgumentParser(description="Browser check of the editor pages")
+    ap.add_argument("variants", nargs="*", help=f"any of {', '.join(PAGES)} (default: both)")
+    ap.add_argument("--browser", choices=sorted(cdp.BROWSERS), default="chrome")
+    ap.add_argument("--scheme", choices=("light", "dark"), default="light")
+    ap.add_argument("--size", default="1400x1000", help="window size WIDTHxHEIGHT in CSS pixels")
+    args = ap.parse_args(argv if argv is not None else sys.argv[1:])
+    try:
+        size = tuple(int(x) for x in args.size.lower().split("x"))
+        assert len(size) == 2 and min(size) > 0
+    except (ValueError, AssertionError):
+        print(f"usage: --size WIDTHxHEIGHT, got {args.size!r}", file=sys.stderr)
+        return 2
+    variants = args.variants or list(PAGES)
+    if any(v not in PAGES for v in variants):
+        print(f"usage: variants are {', '.join(PAGES)}, got {variants}", file=sys.stderr)
+        return 2
+    tag = "" if (args.browser, args.scheme, size) == ("chrome", "light", (1400, 1000)) else f"_{args.browser}_{args.scheme}"
     status = 0
     for v in variants:
         try:
-            res = run(v)
+            res = run(v, args.browser, args.scheme, size)
         except FileNotFoundError as e:
-            print(f"INDETERMINATE {v}: Chrome not found ({e})")
+            print(f"INDETERMINATE {v}: {args.browser} not found ({e})")
             return 3
         except Exception as e:  # noqa: BLE001 - a crashed check is could-not-tell, never a pass
             res = {"variant": v, "status": "INDETERMINATE", "error": f"{type(e).__name__}: {e}", "trace": traceback.format_exc()[-2000:]}
-        (SCRATCH / f"check_{v}.json").write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
-        print(f"{res['status']} {v}")
+        (SCRATCH / f"check_{v}{tag}.json").write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
+        print(f"{res['status']} {v} ({args.browser}, {args.scheme}, {size[0]}x{size[1]}; {res.get('user_agent', '?')})")
         for cid, c in (res.get("checks") or {}).items():
             print(f"  {cid:3s} {c['status']:13s} {c['detail'][:400]}")
         if res.get("error"):

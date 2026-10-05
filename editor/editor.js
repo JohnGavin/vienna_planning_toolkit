@@ -11,7 +11,7 @@
    (when the browser allows it). Texts: script#el-config messages (presets/editor_docs.json).
 
    Connect mode links a switch to the lights it works (only codes in the switch's connectable_to list); light groups, the
-   proposed switch type and Apply; the layout hints H1-H3; the suggestions of the chosen rule set (computed by vpt/el_rules.py
+   proposed switch type and Apply; the layout checks H1-H9 (mirror vpt/el_checks.py); the suggestions of the chosen rule set (computed by vpt/el_rules.py
    into the plan file: shown here as faint rings, and snapped to). Groups, proposals, link rules and hints mirror vpt/el_links.py.
 
    Variants (CFG.variant): pages = Save layout / Save to file / Save parameters / Print view exist; artifact = they do not
@@ -204,6 +204,78 @@
       h3 = { id: 'H3', items: items, status: stat(items, !items.length), detail: bad + ' door(s) of rooms with a light have no switch within ' + near + ' m' };
     }
     return [h1, h2, h3];
+  }
+  // ---- layout checks H1-H9: mirror vpt/el_checks.py (same ids, details and items) ----
+  var CK = RULES.checks, SOCKET_TYPES = ['living', 'bedroom', 'kitchen', 'wet', 'hall'];
+  function rval(setId, key) { var v = (RULES.values[setId] || {})[key]; return v ? (v.value === undefined ? null : v.value) : null; }
+  function missing(setId, keys) { var gone = keys.filter(function (k) { return rval(setId, k) === null; });
+    return gone.length ? { items: [], status: UNK, detail: 'no value yet: ' + gone.join(', ') + ' (rule set ' + setId + ')' } : null; }
+  function typeKeys() { return ['kitchen_keywords'].concat(CK.room_types.filter(function (t) { return t !== 'kitchen' && t !== 'wet'; }).map(function (t) { return 'room_words_' + t; })); }
+  function roomType(r, setId) {
+    var name = String(r.name || '').toLowerCase(), has = function (ws) { return (ws || []).some(function (w) { return name.indexOf(String(w).toLowerCase()) >= 0; }); };
+    for (var i = 0; i < CK.room_types.length; i++) { var t = CK.room_types[i];
+      if (t === 'kitchen') { if (has(rval(setId, 'kitchen_keywords'))) return t; }
+      else if (t === 'wet') { if (r.wet) return t; }
+      else if (has(rval(setId, 'room_words_' + t))) return t; }
+    return null;
+  }
+  function catOf(set, code) { var d = defIn(set, code); return d ? d.category : null; }
+  function layoutChecks(symbols, links, rooms, doors, k, setId, set, roomsKnown) {
+    var out = {}; hints(symbols, links, doors, k, setId, set, roomsKnown).forEach(function (h) { out[h.id] = h; });
+    var inRoom = {}; symbols.forEach(function (s) { if (s.room) (inRoom[s.room] = inRoom[s.room] || []).push(s); });
+    var mine = function (id) { return inRoom[id] || []; };
+    var noRooms = (!roomsKnown || !rooms.length) ? { items: [], status: UNK, detail: 'the plan has no rooms: could not tell' } : null;
+    var types = {}; rooms.forEach(function (r) { types[r.id] = roomType(r, setId); });
+    var unkType = function (r) { return { room: r.id, status: UNK, why: "the room's type could not be told from its label" }; };
+    var nBad = function (items) { return items.filter(function (i) { return i.status === DIFF; }).length; };
+    // H4
+    var h = noRooms || missing(setId, typeKeys().concat(['check_light_room_types'])), items, want;
+    if (!h) { var need = rval(setId, 'check_light_room_types'); items = [];
+      rooms.forEach(function (r) { var t = types[r.id]; if (t === null) { items.push(unkType(r)); return; } if (need.indexOf(t) < 0) return;
+        var n = mine(r.id).filter(function (s) { return isLight(set, s.code); }).length;
+        items.push({ room: r.id, status: n ? MATCH : DIFF, why: n ? n + ' light(s)' : 'no light' }); });
+      h = { items: items, status: stat(items, !items.length), detail: items.length ? nBad(items) + ' of ' + items.filter(function (i) { return i.status !== UNK; }).length +
+        ' room(s) that need a light have none' : 'no room of the types that need a light: nothing to check' }; }
+    out.H4 = { id: 'H4', items: h.items, status: h.status, detail: h.detail };
+    // H5
+    h = noRooms || missing(setId, typeKeys().concat(SOCKET_TYPES.map(function (t) { return 'check_min_sockets_' + t; })));
+    if (!h) { var per = CK.outlets_per_symbol || {}; items = [];
+      rooms.forEach(function (r) { var t = types[r.id]; if (t === null) { items.push(unkType(r)); return; } if (SOCKET_TYPES.indexOf(t) < 0) return;
+        var w = rval(setId, 'check_min_sockets_' + t), n = 0;
+        mine(r.id).forEach(function (s) { if (catOf(set, s.code) === CK.socket_category) n += (s.code in per ? per[s.code] : 1); });
+        items.push({ room: r.id, status: n >= w ? MATCH : DIFF, why: n + ' of at least ' + w + ' socket outlet(s) (' + t + ')' }); });
+      h = { items: items, status: stat(items, !items.length), detail: items.length ? nBad(items) + ' room(s) with fewer socket outlets than our starting minimum' :
+        'no room of a type with a minimum: nothing to check' }; }
+    out.H5 = { id: 'H5', items: h.items, status: h.status, detail: h.detail };
+    // H6
+    h = noRooms || missing(setId, typeKeys().concat(['check_min_appliance_outlets_kitchen']));
+    if (!h) { want = rval(setId, 'check_min_appliance_outlets_kitchen'); items = [];
+      rooms.forEach(function (r) { if (types[r.id] !== 'kitchen') return;
+        var cooker = mine(r.id).some(function (s) { return CK.cooker_codes.indexOf(s.code) >= 0; });
+        var n = mine(r.id).filter(function (s) { return catOf(set, s.code) === CK.appliance_category; }).length;
+        items.push({ room: r.id, status: cooker && n >= want ? MATCH : DIFF, why: (cooker ? 'a' : 'no') + ' cooker outlet, ' + n + ' of at least ' + want + ' appliance outlet(s)' }); });
+      h = { items: items, status: stat(items, !items.length), detail: items.length ? nBad(items) + ' of ' + items.length +
+        ' kitchen(s) without a cooker outlet or with too few appliance outlets' : 'no kitchen in the plan: nothing to check' }; }
+    out.H6 = { id: 'H6', items: h.items, status: h.status, detail: h.detail };
+    // H7
+    h = noRooms || missing(setId, typeKeys().concat(['check_smoke_room_types']));
+    if (!h) { var sneed = rval(setId, 'check_smoke_room_types'); items = [];
+      rooms.forEach(function (r) { var t = types[r.id]; if (t === null) { items.push(unkType(r)); return; } if (sneed.indexOf(t) < 0) return;
+        var ok = mine(r.id).some(function (s) { return CK.smoke_codes.indexOf(s.code) >= 0; });
+        items.push({ room: r.id, status: ok ? MATCH : DIFF, why: ok ? 'a smoke alarm' : 'no smoke alarm' }); });
+      h = { items: items, status: stat(items, !items.length), detail: items.length ? nBad(items) + ' room(s) without a smoke alarm (our starting rule; Austrian rules not checked)' :
+        'no room of the types that need a smoke alarm: nothing to check' }; }
+    out.H7 = { id: 'H7', items: h.items, status: h.status, detail: h.detail };
+    // H8
+    var wet = {}; rooms.forEach(function (r) { if (r.wet) wet[r.id] = 1; });
+    var ws = symbols.filter(function (s) { return s.room && wet[s.room] && catOf(set, s.code) === CK.socket_category; });
+    out.H8 = { id: 'H8', status: UNK, items: ws.map(function (s) { return { symbol: s.id, status: UNK, why: 'zones unknown' }; }),
+      detail: 'no shower or bath zones are known in the plan: could not tell (' + ws.length + ' socket(s) in wet rooms)' };
+    // H9
+    var lost = symbols.filter(function (s) { return !s.room; }).map(function (s) { return { symbol: s.id, status: UNK, why: 'outside every room' }; });
+    out.H9 = { id: 'H9', items: lost, status: lost.length || !symbols.length ? UNK : MATCH,
+      detail: symbols.length ? lost.length + ' of ' + symbols.length + ' symbol(s) outside every room' : 'no symbol placed: nothing to check' };
+    return ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9'].map(function (i) { return out[i]; });
   }
   function kindOf(code) { var out = null; Object.keys(RULES.suggest).forEach(function (k) { if (RULES.suggest[k].codes.indexOf(code) >= 0) out = k; }); return out; }
 
@@ -456,10 +528,12 @@
     }
     var p = validate(o, PLAN_SCHEMA); if (p.length) return ['could-not-tell', 'not a valid plan file (' + p.length + ' problem(s), first: ' + p[0] + ')'];
     for (var i = 0; i < o.storeys.length; i++) { var st = o.storeys[i];
+      if ((o.schema_version >= 2) !== ('windows' in st)) return ['could-not-tell', 'storey ' + st.key + ': a version-' + o.schema_version + ' plan file ' +
+        (o.schema_version >= 2 ? 'must list its windows' : 'has no windows (they came with version 2)')];
       if (!parseSvg(st.svg)) return ['could-not-tell', 'storey ' + st.key + ': the drawing does not parse'];
       var a = st.affine; if (Math.abs(a[0] * a[3] - a[1] * a[2]) < 1e-12) return ['could-not-tell', 'storey ' + st.key + ": the drawing's affine cannot be inverted"]; }
-    var nr = 0, nd = 0; o.storeys.forEach(function (s) { nr += s.rooms.length; nd += s.doors.length; });
-    return ['match', o.storeys.length + ' storey(s), ' + nr + ' rooms, ' + nd + ' doors', o];
+    var nr = 0, nd = 0, nw = 0; o.storeys.forEach(function (s) { nr += s.rooms.length; nd += s.doors.length; nw += (s.windows || []).length; });
+    return ['match', o.storeys.length + ' storey(s), ' + nr + ' rooms, ' + nd + ' doors, ' + (o.schema_version >= 2 ? nw + ' windows' : 'windows unknown (version-1 file)'), o];
   }
 
   window.elPages = {};
@@ -539,7 +613,8 @@
     var D = { storey: st.key, label: st.label, drawing_file: plan.drawing.file, sha256: plan.drawing.sha256,
       file_name: stem(plan.drawing.file) + '__' + st.key + CFG.file_suffix, view_box: st.view_box, affine: st.affine, page_mm: st.page_mm,
       scale_1_to: st.scale_1_to, vb_per_mm: st.view_box[2] / st.page_mm[0], mm_per_unit: mm, rooms_known: true,
-      rooms: st.rooms.map(function (r) { return { id: r.id, outline: r.outline, anchor: r.anchor, name: r.name }; }),
+      rooms: st.rooms.map(function (r) { return { id: r.id, outline: r.outline, anchor: r.anchor, name: r.name, wet: !!r.wet }; }),
+      windows: Array.isArray(st.windows) ? st.windows : null,
       room_label_max_units: mm ? CFG.room_label_max_m * 1000 / mm : null, units_per_m: k,
       snap_units: k ? RULES.settings.snap_radius_m * k : null, doors: st.doors, suggest: st.suggest, examples: st.examples, synthetic: plan.synthetic };
     var key = D.storey, view = pg.querySelector('.el-view');
@@ -711,7 +786,7 @@
     pg.elChanged = function () { if (S.symbols.length && !S.example) store(DKEY, JSON.stringify(layout())); };
     pg.elDestroy = function () { mo.disconnect(); window.removeEventListener('resize', sizeGhosts); };
     function currentGroups() { return groups(S.symbols, S.links); }
-    function currentHints() { return hints(S.symbols, S.links, D.doors || [], D.units_per_m, S.rules, SET(), D.rooms_known); }
+    function currentHints() { return layoutChecks(S.symbols, S.links, D.rooms, D.doors || [], D.units_per_m, S.rules, SET(), D.rooms_known); }
     function renderGroups() {
       var box = pg.querySelector('.el-groups-body'); if (!box) return;
       var gs = currentGroups();
@@ -736,8 +811,12 @@
         li.setAttribute('data-status', h.status);
         var st2 = li.querySelector('.el-hint-st'); st2.className = 'el-hint-st ' + cls[h.status]; st2.textContent = lab[h.status];
         var bad = h.items.filter(function (i) { return i.status !== MATCH; }).map(function (i) {
-          return (i.symbol || (i.room + (i.door ? ' ' + i.door : ''))) + (i.status === UNK ? ' (could not tell: ' + i.why + ')' : ''); });
+          return (i.symbol || (roomName(i.room) + (i.door ? ' ' + i.door : ''))) + (i.status === UNK ? ' (could not tell: ' + i.why + ')' : ''); });
         li.querySelector('.el-hint-items').textContent = h.detail + (bad.length ? ': ' + bad.slice(0, 12).join(', ') + (bad.length > 12 ? ', …' : '') : ''); });
+      var n = function (s) { return hs.filter(function (h) { return h.status === s; }).length; }, cc = pg.querySelector('.el-check-counts');
+      if (cc) cc.textContent = '(' + fmt(M.checks_counts, { ok: n(MATCH), look: n(DIFF), unk: n(UNK) }) + ')';
+      var wl = pg.querySelector('.el-windows');
+      if (wl) { wl.textContent = D.windows ? fmt(M.windows_known, { n: D.windows.length }) : M.windows_unknown; wl.setAttribute('data-windows', D.windows ? String(D.windows.length) : 'unknown'); }
     }
     function render() {
       Object.keys(layerG).forEach(function (k2) { var g = layerG[k2]; while (g.firstChild) g.removeChild(g.firstChild); });
@@ -1038,7 +1117,8 @@
       check: check, open: function (t, n) { return openText(t, n || 'file', null, false); }, select: function (id) { sel = id; render(); },
       anchor: function (id) { var a = svg.querySelector('.el-sym[data-id="' + CSS.escape(id) + '"] .el-anchor'); if (!a) return null;
         var r = a.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; },
-      groups: currentGroups, hints: currentHints, proposal: function (i) { var g = currentGroups()[i];
+      groups: currentGroups, hints: currentHints, checksOf: function (symbols, links, setId) {
+        return layoutChecks(symbols, links, D.rooms, D.doors || [], D.units_per_m, setId, SET(), D.rooms_known); }, proposal: function (i) { var g = currentGroups()[i];
         return g ? proposal(g.switches.map(function (id) { return [id, byId(id).code]; })) : null; },
       suggestions: function (kind) { return sugList(kind); }, ghosts: function () { return ghostG.querySelectorAll('.el-ghost-m').length; },
       example: function (id) { return showExample(id, false); }, exampleShown: function () { return S.example; }, shownLayers: shownLayers,

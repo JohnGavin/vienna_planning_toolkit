@@ -466,7 +466,7 @@
         "label": "Check: rooms that need a light",
         "unit": "room types",
         "kind": "check",
-        "text": "Layout check: every room of these types has at least one light symbol. Types: kitchen, wet, living, bedroom, hall, storage."
+        "text": "Layout check: every room of these types has at least one light symbol (the room types: presets/el_rules_at.json checks.room_types)."
       },
       "check_min_sockets_living": {
         "label": "Check: sockets in a living room, at least",

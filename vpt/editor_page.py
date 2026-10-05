@@ -22,7 +22,7 @@ import json
 import pathlib
 import re
 
-from vpt import ROOT, docs as dx, el_examples, el_layout, el_params, el_rules, el_symbols, plan as plan_mod
+from vpt import ROOT, docs as dx, el_checks, el_examples, el_layout, el_params, el_rules, el_symbols, plan as plan_mod
 
 EDITOR = ROOT / "editor"
 VARIANTS = {
@@ -158,12 +158,13 @@ def page_template(lib: dict, d: dx.Docs, rules: dict, v: dict) -> str:
     view = (f'<div class="el-view" role="group" aria-label="Electrical plan" tabindex="0">' + tools
             + f'<div class="dwg-body"><div class="dwg-paper"></div><div class="el-side">{palette(lib, d)}{panel}</div></div></div>')
     hint_li = "".join(f'<li class="el-hint" data-hint="{h}">{dx.tip(_c(d, "hint_" + h.lower())["label"], etip(d, "hint_" + h.lower()))}: '
-                      f'<span class="el-hint-st"></span> <span class="el-hint-items"></span></li>' for h in ("H1", "H2", "H3"))
+                      f'<span class="el-hint-st"></span> <span class="el-hint-items"></span></li>' for h in el_checks.IDS)
     below = (f'<div class="el-below">'
              f'<details class="el-groups" open><summary class="tip" data-tip="{dx.esc(etip(d, "groups"))}">Switching groups</summary>'
              f'<div class="el-groups-body"></div></details>'
-             f'<details class="el-hints" open><summary class="tip" data-tip="{dx.esc(etip(d, "hints"))}">Layout hints</summary>'
-             f'<ul class="el-hint-list">{hint_li}</ul></details></div>')
+             f'<details class="el-hints" open><summary class="tip" data-tip="{dx.esc(etip(d, "hints"))}">{dx.esc(_c(d, "hints")["label"])}'
+             f' <span class="el-check-counts"></span></summary>'
+             f'<p class="el-hint-items el-windows"></p><ul class="el-hint-list">{hint_li}</ul></details></div>')
     return (f'<template id="el-page-tpl"><div class="el-page" role="tabpanel">'
             f'<p class="el-status" role="status" aria-live="polite"></p>' + bar
             + '<p class="el-example-banner" hidden><b class="el-example-text"></b> <span class="el-example-which"></span></p>'
@@ -437,9 +438,9 @@ def build(plan: dict, variant: str) -> str:
     sdef = el_symbols.default_set(lib)
     t = d.t
     page_cfg = dict(cfg, messages=t["electrical"]["messages"], banners=t["banners"], pages_url=t["pages_url"], variant=v,
-                    anchors={k: anchor(k) for k in ("suggestions", "groups", "apply", "links_layer", "rules", "hint_h1", "hint_h2", "hint_h3",
-                                                    "connect", "layers", "storeys", "plan")},
-                    labels={k: _c(d, k)["label"] for k in ("hint_h1", "hint_h2", "hint_h3")},
+                    anchors={k: anchor(k) for k in ("suggestions", "groups", "apply", "links_layer", "rules", "connect", "layers", "storeys", "plan",
+                                                    "dxf_export") + tuple("hint_" + h.lower() for h in el_checks.IDS)},
+                    labels={"hint_" + h.lower(): _c(d, "hint_" + h.lower())["label"] for h in el_checks.IDS},
                     tips={"layer": d.bl("electrical.layer"), "storeys": d.bl("electrical.storeys")},
                     print=d.print_cfg(), params_panel=t["params_panel"], docs_ui={"internals": t["docs"]["internals"], "fs": t["docs"]["fs"]})
     note_key = "artifact_note" if variant == "artifact" else "pages_note"
