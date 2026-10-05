@@ -1,0 +1,44 @@
+{
+  "name": "dwg_convert",
+  "description": "DWG -> DXF conversion and its completeness check (vpt/dwg_convert.py, tools/dwg_convert.py). Every value is a starting value: check it against your converter.",
+  "converter": "dwg2dxf",
+  "converter_args": ["-y"],
+  "version_args": ["--version"],
+  "converter_route": "auto",
+  "converter_route_note": "auto = the ODA File Converter when it is installed (oda_candidates, or ODAFileConverter on PATH), else LibreDWG from converter_nix_shell. oda / nix / path force one route. A route that cannot run is could-not-tell: there is no switch to another route after a failure.",
+  "oda_candidates": ["/Applications/ODAFileConverter.app/Contents/MacOS/ODAFileConverter", "/usr/bin/ODAFileConverter"],
+  "oda_output_version": "ACAD2018",
+  "converter_nix_shell": "nix/libredwg.nix",
+  "converter_nix_rev": "release",
+  "converter_nix_note": "nix/libredwg.nix rev 'release' = LibreDWG 0.14. The 0.13.x in nixpkgs has been seen to write a DXF that stops after the BLOCKS section while exiting 0; the completeness check below catches that whatever the exit code.",
+  "timeout_s": 600,
+  "max_messages_kept": 200,
+  "unsupported_patterns": ["(?i)unhandled", "(?i)unsupported", "(?i)not yet implemented", "(?i)unknown (?:class|object|entity)", "(?i)\\bproxy\\b", "^ERROR:"],
+  "allowed_messages": [
+    {
+      "pattern": "^ERROR: Invalid ATTRIB\\.keep_duplicate_records\\b",
+      "reason": "LibreDWG 0.14 logs this while decoding block attribute records (ATTRIB); the attribute is still written. Accepted only if the 'attribs' verification holds on the file at hand: every INSERT whose block defines ATTDEFs carries as many ATTRIBs, and the ATTRIBs ezdxf reads equal the ATTRIB markers in the DXF.",
+      "verify": "attribs"
+    }
+  ],
+  "allowed_messages_note": "Reviewed allow-list: a converter line matching unsupported_patterns makes the result could-not-tell unless an entry here accepts it. Every entry has a reason; an entry with 'verify' is re-checked on every run and its result (verified / failed / not verified) is reported with the lines it accepted. A failed verification makes the result could-not-tell again.",
+  "completeness": {
+    "require_eof": true,
+    "required_sections": ["ENTITIES", "OBJECTS"],
+    "no_objects_section_versions": ["AC1009"],
+    "empty_model_min_block_entities": 1,
+    "note": "Checked on the DXF as written, independent of the converter's exit code. A DXF without EOF, ENTITIES or OBJECTS is cut off: FAIL."
+  },
+  "unsupported_dxf_types": ["ACAD_PROXY_ENTITY", "ACAD_PROXY_OBJECT"],
+  "versions": {
+    "AC1009": "AutoCAD R11/R12",
+    "AC1012": "AutoCAD R13",
+    "AC1014": "AutoCAD R14",
+    "AC1015": "AutoCAD 2000",
+    "AC1018": "AutoCAD 2004",
+    "AC1021": "AutoCAD 2007",
+    "AC1024": "AutoCAD 2010",
+    "AC1027": "AutoCAD 2013",
+    "AC1032": "AutoCAD 2018"
+  }
+}
