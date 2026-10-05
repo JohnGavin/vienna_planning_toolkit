@@ -262,7 +262,7 @@ def rules_tables(rules: dict, d: dx.Docs) -> str:
 
 def params_meta(params: dict) -> dict:
     return {"sha256": el_params.sha256(), "file_name": el_params.PRESET.name, "live_sections": list(el_params.LIVE_SECTIONS),
-            "live_rules": list(el_params.LIVE_RULES), "colour_keys": list(el_params.COLOUR_KEYS), "anchor": anchor("params")}
+            "live_rules": el_params.live_rules(params), "colour_keys": list(el_params.COLOUR_KEYS), "anchor": anchor("params")}
 
 
 def params_table(params: dict, d: dx.Docs) -> str:

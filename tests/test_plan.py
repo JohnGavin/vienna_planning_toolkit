@@ -17,7 +17,7 @@ def exported():
 
 
 def test_export_is_valid_and_checks(exported):
-    assert plan.check(exported) == ("match", "1 storey(s), 7 rooms, 8 doors")
+    assert plan.check(exported) == ("match", "1 storey(s), 7 rooms, 8 doors, 7 windows")
     assert exported["drawing"]["file"] == "synthetic_flat.dxf" and "/" not in exported["drawing"]["file"]
     assert exported["drawing"]["sha256"] == plan.sha256_file(SAMPLE_PATH)
     assert exported["synthetic"] is True and exported["extract"]["status"] == "PASS"
@@ -46,7 +46,7 @@ def test_suggestions_are_those_of_el_rules(exported):
     rules = el_rules.load()
     rooms, doors, k = el_rules.storey_input(st, exported["drawing"]["units_per_m"])
     for rs in rules["rule_sets"]:
-        assert st["suggest"][rs["id"]] == json.loads(json.dumps(el_rules.suggestions(rooms, doors, k, rules, rs["id"])))
+        assert st["suggest"][rs["id"]] == json.loads(json.dumps(el_rules.suggestions(rooms, doors, k, rules, rs["id"], windows=el_rules.storey_windows(st))))
     assert all(not v for kk, v in st["suggest"]["elektroplaner"].items() if kk != "notes")      # null values: no suggestion
 
 
@@ -75,7 +75,10 @@ def test_check_text_three_outcomes(text, want, why):
     (lambda p: p["storeys"][0].__setitem__("affine", [1, 2, 2, 4, 0, 0]), "affine"),
     (lambda p: p["drawing"].__setitem__("file", "/home/someone/plan.dxf"), "pattern"),
     (lambda p: p["drawing"].__setitem__("sha256", "xyz"), "pattern"),
-    (lambda p: p.__setitem__("schema_version", 2), "enum"),
+    (lambda p: p.__setitem__("schema_version", 3), "enum"),
+    (lambda p: p["storeys"][0].pop("windows"), "must list its windows"),
+    (lambda p: p.__setitem__("schema_version", 1), "has no windows"),
+    (lambda p: p["storeys"][0]["windows"][0].__setitem__("width_m", 0), "exclusiveMinimum"),
     (lambda p: p["storeys"][0]["doors"][0].__setitem__("closed_end", "c"), "enum"),
 ])
 def test_broken_plans_could_not_tell(exported, plant, why):
@@ -95,3 +98,20 @@ def test_export_tool_writes_and_reports(tmp_path):
     bad.write_text("not a dxf", encoding="utf-8")
     assert export_plan.main([str(bad), "--output", str(tmp_path / "bad.plan.json")]) == 3
     assert not (tmp_path / "bad.plan.json").exists()
+
+
+def test_a_version_1_plan_still_opens_with_windows_unknown(exported):
+    """Backward compatibility: an older plan file (version 1, no windows) opens; its windows are unknown, and the suggestions
+    computed from it say so instead of keeping clear of windows they do not know."""
+    old = copy.deepcopy(exported)
+    old["schema_version"] = 1
+    for st in old["storeys"]:
+        st.pop("windows")
+    got = plan.check(old)
+    assert got[0] == "match" and "windows unknown" in got[1], got
+    rules = el_rules.load()
+    rooms, doors, k = el_rules.storey_input(old["storeys"][0], old["drawing"]["units_per_m"])
+    assert el_rules.storey_windows(old["storeys"][0]) is None
+    notes = el_rules.suggestions(rooms, doors, k, rules, "starting", windows=None)["notes"]
+    assert any("windows unknown" in n for n in notes["socket"]) and any("windows unknown" in n for n in notes["kitchen"])
+    assert not any("windows unknown" in n for n in notes["switch"])

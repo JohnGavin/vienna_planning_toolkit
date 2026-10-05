@@ -1,4 +1,4 @@
-"""Rooms, doors and walls per storey of a DXF: the input for the electrical editor's placement suggestions and room lookup.
+"""Rooms, doors, walls and windows per storey of a DXF: the input for the electrical editor's placement suggestions and room lookup.
 
 Everything drawing-specific is in presets/plan_extract.json (layer naming rule, which base names hold room labels, room
 outlines, walls and doors, the door geometry limits). Model space only.
@@ -19,10 +19,14 @@ Doors   an ARC on a door layer whose radius and sweep are in the preset's ranges
         when both give the same pair). The rooms on the two sides of the opening are found with assign() at the probe
         distances; a side with no room is "no room (outside, or a space without a label)".
 Walls   the straight pieces of the wall layers (excluded statuses left out); per room the segments running along its outline.
+Windows groups of straight lines on the window layers (window_groups(): parallel lines across one wall, plus the short sill
+        ends); the opening (window_opening()): along the group, the median start to the median end of its parallel lines; across,
+        the middle of the wall. Id <storey>-F<n>; the wall pieces ending at the opening; the rooms on its two sides.
 Checks (match / different / could-not-tell; could-not-tell is never a match):
     R1 every room has an id and a storey      R2 every door connects at least one room (never a room to itself)
     R3 every room has an outline              R4 every door's swing is determined
     R5 every room with an outline has a wall segment along it
+    R6 every window lies in a wall of a room (no window found: could not tell, the suggestions cannot keep clear of windows)
 """
 from __future__ import annotations
 
@@ -278,8 +282,128 @@ def door_sides(arc: dict, closed: str, labels: list[dict], outlines: list, wall_
     return out
 
 
-def checks_of(rooms: list[dict], doors: list[dict]) -> list[Check]:
-    """R1-R5 (items carry ids, never a name)."""
+def _median(xs: list[float]) -> float:
+    s = sorted(xs)
+    n = len(s)
+    return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2.0
+
+
+def window_groups(segs: list[tuple], k: float, cfg: dict) -> list[list[int]]:
+    """Indices of segs [(p, q)] grouped into windows: parallel lines of at least min_width_m whose extents along each other
+    overlap by at least half the shorter and that lie within max_depth_m across, plus lines within join_m of a group (the short
+    sill ends; two short parallel ends of neighbouring windows never join them)."""
+    n = len(segs)
+    parent = list(range(n))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    s_tol = math.sin(math.radians(cfg["parallel_deg"]))
+    geo = [LineString([p, q]) for p, q in segs]
+    dirs = [_unit((q[0] - p[0], q[1] - p[1])) for p, q in segs]
+    lens = [math.dist(p, q) for p, q in segs]
+    depth, join, long_ = cfg["max_depth_m"] * k, cfg["join_m"] * k, cfg["min_width_m"] * k
+    for i in range(n):
+        for j in range(i + 1, n):
+            u, w = dirs[i], dirs[j]
+            if abs(u[0] * w[1] - u[1] * w[0]) <= s_tol and min(lens[i], lens[j]) >= long_:
+                p = segs[i][0]
+                t = sorted(((x[0] - p[0]) * u[0] + (x[1] - p[1]) * u[1]) for x in segs[j])
+                overlap = min(lens[i], t[1]) - max(0.0, t[0])
+                mid = ((segs[j][0][0] + segs[j][1][0]) / 2, (segs[j][0][1] + segs[j][1][1]) / 2)
+                off = abs((mid[0] - p[0]) * u[1] - (mid[1] - p[1]) * u[0])
+                if overlap >= 0.5 * min(lens[i], lens[j]) and off <= depth:
+                    parent[find(j)] = find(i)
+            elif geo[i].distance(geo[j]) <= join:
+                parent[find(j)] = find(i)
+    out: dict[int, list[int]] = {}
+    for i in range(n):
+        out.setdefault(find(i), []).append(i)
+    return sorted(out.values(), key=lambda g: g[0])
+
+
+def window_opening(segs: list[tuple], idx: list[int], k: float, cfg: dict) -> dict | None:
+    """The opening of one window group: {p, q (the opening line, in the middle of the wall), u, n, start, end, cmin, cmax, origin}
+    (model units; u along, n across) or None when it has no line long enough."""
+    longest = max(idx, key=lambda i: math.dist(*segs[i]))
+    p0, q0 = segs[longest]
+    u = _unit((q0[0] - p0[0], q0[1] - p0[1]))
+    if u[0] < -1e-9 or (abs(u[0]) <= 1e-9 and u[1] < 0):      # a fixed direction: drawing order must not matter
+        u = (-u[0], -u[1])
+    n = (-u[1], u[0])
+    o = p0
+    s_tol = math.sin(math.radians(cfg["parallel_deg"]))
+    par = []
+    for i in idx:
+        a, b = segs[i]
+        w = _unit((b[0] - a[0], b[1] - a[1]))
+        if abs(u[0] * w[1] - u[1] * w[0]) > s_tol:
+            continue
+        t = sorted(((x[0] - o[0]) * u[0] + (x[1] - o[1]) * u[1]) for x in (a, b))
+        c = ((a[0] + b[0]) / 2 - o[0]) * n[0] + ((a[1] + b[1]) / 2 - o[1]) * n[1]
+        par.append((t[0], t[1], c))
+    if not par:
+        return None
+    start, end = _median([x[0] for x in par]), _median([x[1] for x in par])
+    if end - start < cfg["min_width_m"] * k:
+        return None
+    et = cfg["edge_tol_m"] * k
+    span = [x for x in par if abs(x[0] - start) <= et and abs(x[1] - end) <= et] or par
+    cmin, cmax = min(x[2] for x in span), max(x[2] for x in span)
+    cm = (cmin + cmax) / 2
+    pt = lambda t, c: (o[0] + u[0] * t + n[0] * c, o[1] + u[1] * t + n[1] * c)
+    return {"p": pt(start, cm), "q": pt(end, cm), "u": u, "n": n, "o": o, "start": start, "end": end, "cmin": cmin, "cmax": cmax}
+
+
+def windows_of(segs: list[tuple], key: str, walls: list, wall_ids: list[str], labels: list[dict], outlines: list, wall_tree,
+               k: float, max_dist: float, cfg: dict) -> tuple[list[dict], int]:
+    """(windows, number of groups left out as narrower than min_width_m): per window its id <storey>-F<n> (top to bottom, left
+    to right), the opening line p -> q in the middle of the wall, width and depth in metres, the wall pieces it sits in and
+    the rooms on its two sides (a room on one side only: an outer wall)."""
+    out, skipped = [], 0
+    tol = cfg["wall_tol_m"] * k
+    s_tol = math.sin(math.radians(cfg["parallel_deg"]))
+    for g in window_groups(segs, k, cfg):
+        op = window_opening(segs, g, k, cfg)
+        if op is None:
+            skipped += 1
+            continue
+        u, n, o = op["u"], op["n"], op["o"]
+        along = lambda x: (x[0] - o[0]) * u[0] + (x[1] - o[1]) * u[1]
+        across = lambda x: (x[0] - o[0]) * n[0] + (x[1] - o[1]) * n[1]
+        ids = []
+        for wid, wg in zip(wall_ids, walls):
+            a, b = wg.coords[0], wg.coords[-1]
+            w = _unit((b[0] - a[0], b[1] - a[1]))
+            if abs(u[0] * w[1] - u[1] * w[0]) > s_tol:
+                continue
+            if not all(op["cmin"] - tol <= across(x) <= op["cmax"] + tol for x in (a, b)):
+                continue
+            if any(abs(along(x) - e) <= tol for x in (a, b) for e in (op["start"], op["end"])):
+                ids.append(wid)
+        mid = ((op["p"][0] + op["q"][0]) / 2, (op["p"][1] + op["q"][1]) / 2)
+        half = (op["cmax"] - op["cmin"]) / 2
+        rooms = []
+        for sgn in (1.0, -1.0):
+            mine = [lb for lb in labels if sgn * ((lb["px"] - mid[0]) * n[0] + (lb["py"] - mid[1]) * n[1]) > 0]
+            for d in cfg["side_probe_m"]:
+                x, y = mid[0] + sgn * n[0] * (half + d * k), mid[1] + sgn * n[1] * (half + d * k)
+                rid, _, _ = assign(x, y, mine, outlines, wall_tree, max_dist)
+                if rid:
+                    if rid not in rooms:
+                        rooms.append(rid)
+                    break
+        out.append({"storey": key, "p": [round(op["p"][0], 6), round(op["p"][1], 6)], "q": [round(op["q"][0], 6), round(op["q"][1], 6)],
+                    "width_m": round((op["end"] - op["start"]) / k, 3), "depth_m": round((op["cmax"] - op["cmin"]) / k, 3),
+                    "wall_ids": ids, "rooms": rooms, "note": "" if rooms else "no room found on either side within the probe distances"})
+    out.sort(key=lambda w: (-round((w["p"][1] + w["q"][1]) / 2 / k, 1), (w["p"][0] + w["q"][0]) / 2))
+    return [dict({"id": f"{key}-F{i}"}, **w) for i, w in enumerate(out, 1)], skipped
+
+
+def checks_of(rooms: list[dict], doors: list[dict], windows: list[dict] | None = None) -> list[Check]:
+    """R1-R6 (items carry ids, never a name)."""
     bad = [r for r in rooms if not r.get("id") or not r.get("storey")]
     r1 = Check("R1", "Every room has an id and a storey", UNK if not rooms else (DIFF if bad else MATCH),
                "no room label found: nothing to check" if not rooms else
@@ -307,7 +431,13 @@ def checks_of(rooms: list[dict], doors: list[dict]) -> list[Check]:
                "no room has an outline: nothing to check" if not ol else
                f"{len(ol)} rooms with an outline: {len(ol) - len(nowall)} with wall segments along it",
                [{"room": r["id"], "status": UNK} for r in nowall])
-    return [r1, r2, r3, r4, r5]
+    ws = windows or []
+    lost = [w for w in ws if not w["rooms"]]
+    r6 = Check("R6", "Every window lies in a wall of a room", UNK if (lost or not ws) else MATCH,
+               "no window found on the window layers: the suggestions cannot keep clear of windows" if not ws else
+               f"{len(ws)} windows: {len(ws) - len(lost)} in a wall of a room, {len(lost)} with no room on either side",
+               [{"window": w["id"], "status": UNK} for w in lost])
+    return [r1, r2, r3, r4, r5, r6]
 
 
 # ---- the extraction ---------------------------------------------------------------------------------------------------------
@@ -441,11 +571,13 @@ def extract(doc, pre: dict) -> dict:
             for rid in d["rooms"]:
                 other = [x for x in d["rooms"] if x != rid]
                 by_id[rid]["doors"].append({"door": d["id"], "to": other[0] if other else (NO_ROOM if d["leads_to"] else "could not tell")})
-        checks = checks_of(rooms, doors)
+        win_segs = [(s["p"], s["q"]) for s in ing["segments"] if here(s["layer"]) and base(s["layer"]) in (L.get("windows") or [])]
+        windows, win_skipped = windows_of(win_segs, key, walls, wall_ids, labels, outlines, tree, k, max_dist, pre["windows"])
+        checks = checks_of(rooms, doors, windows)
         all_checks += checks
         out["storeys"].append({"key": key, "label": storey_label(key, pre), "layers": sorted(n for n, v in info.items() if v["storey"] == key),
-                               "rooms": rooms, "doors": doors, "walls": walls_out, "door_arcs_skipped": dict(skipped),
-                               "checks": [c.as_dict() for c in checks]})
+                               "rooms": rooms, "doors": doors, "walls": walls_out, "windows": windows, "door_arcs_skipped": dict(skipped),
+                               "window_groups_skipped": win_skipped, "checks": [c.as_dict() for c in checks]})
     if not keys:
         out["unknowns"].append("no storey: no layer belongs to a storey")
     accepted = pre.get("accepted_could_not_tell") or {}

@@ -23,7 +23,13 @@ OTHER_PRESETS = {"el_rules_at.json": PRESETS / "el_rules_at.json", "el_page.json
 # values the page applies live when edited in the Parameters panel ("Live"); the rest ("Needs re-export") (the suggestion geometry and the examples) is
 # computed in Python when the plan file is exported, so an edit takes effect after the plan is exported again
 LIVE_SECTIONS = ("snap", "page", "colours_screen", "colours_print", "drawing_screen", "drawing_print", "screen_lines", "print_lines")
-LIVE_RULES = ("hint_switch_near_door_m",)
+LIVE_KINDS = ("hint", "check")     # rules of these kinds are applied by the page itself (the layout checks): live
+
+
+def live_rules(p: dict | None = None) -> list[str]:
+    """The rules the page applies live: those of LIVE_KINDS (the layout checks and their room-type words)."""
+    p = p or load()
+    return [k for k, d in p["rules"]["definitions"].items() if d["kind"] in LIVE_KINDS]
 PALETTES = ("colours_screen", "colours_print")
 COLOUR_KEYS = ("licht", "schalter", "steckdosen", "kueche", "daten", "sicherheit", "verteiler", "link", "marker", "marker_hit",
                "selection", "connect_allowed", "connect_source")
@@ -115,7 +121,7 @@ def rows(p: dict | None = None) -> list[dict]:
         for k, d in p["rules"]["definitions"].items():
             v = p["rules"]["values"][rs["id"]][k]
             out.append({"section": f"{p['rules']['label']}: {rs['name']}", "key": f"rules.{rs['id']}.{k}", "label": d["label"], "value": v["value"],
-                        "unit": d["unit"], "mark": v.get("mark") or "", "source": v.get("source") or "", "live": k in LIVE_RULES})
+                        "unit": d["unit"], "mark": v.get("mark") or "", "source": v.get("source") or "", "live": d["kind"] in LIVE_KINDS})
     return out
 
 

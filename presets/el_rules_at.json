@@ -1,6 +1,6 @@
 {
   "name": "el_rules_at",
-  "description": "The structure of the editor's placement help, switch-light links and layout hints (vpt/el_rules.py, vpt/el_links.py, the editor page): which symbols each kind of suggestion is for, the switching names, the links layer. The rule definitions, both rule sets and their values, and the snap radius are parameters: presets/el_parameters.json (rules, sections.snap); vpt/el_rules.py load() merges them in.",
+  "description": "The structure of the editor's placement help, switch-light links and layout checks (vpt/el_rules.py, vpt/el_links.py, the editor page): which symbols each kind of suggestion is for, the switching names, the links layer. The rule definitions, both rule sets and their values, and the snap radius are parameters: presets/el_parameters.json (rules, sections.snap); vpt/el_rules.py load() merges them in.",
   "suggest": {
     "switch": {
       "name": "Switch beside a door",
@@ -26,7 +26,8 @@
       "values": [
         "socket_min_piece_m",
         "socket_inset_m",
-        "door_cut_max_m"
+        "door_cut_max_m",
+        "window_margin_m"
       ]
     },
     "light": {
@@ -52,7 +53,8 @@
         "kitchen_spacing_m",
         "kitchen_end_margin_m",
         "socket_inset_m",
-        "door_cut_max_m"
+        "door_cut_max_m",
+        "window_margin_m"
       ]
     }
   },
@@ -82,5 +84,27 @@
     "name_de": "Wirkungslinie",
     "name_en": "control line (which switch works which light)",
     "note": "A dashed line from a switch or push-button to each light it works, on its own layer. Drawn between the symbols' insertion points (straight lines, not cable routes). Colour and width: presets/el_parameters.json."
+  },
+  "checks": {
+    "socket_category": "steckdosen",
+    "appliance_category": "kueche",
+    "cooker_codes": [
+      "HE"
+    ],
+    "smoke_codes": [
+      "RM"
+    ],
+    "outlets_per_symbol": {
+      "SS2": 2
+    },
+    "room_types": [
+      "kitchen",
+      "wet",
+      "living",
+      "bedroom",
+      "hall",
+      "storage"
+    ],
+    "note": "Which symbols the layout checks count (vpt/el_checks.py, mirrored in the page): sockets are the symbols of socket_category (a symbol listed in outlets_per_symbol counts as that many outlets, e.g. a double socket as two; every other symbol as one); appliance outlets those of appliance_category; a cooker outlet one of cooker_codes; a smoke alarm one of smoke_codes. A room's type is the first of room_types that fits: kitchen (a kitchen_keywords word in its label), wet (the plan marks it a wet room: presets/plan_extract.json wet_room_pattern), then living, bedroom, hall and storage (a room_words_<type> word in its label); none fits: its type could not be told. The thresholds and word lists are parameters (presets/el_parameters.json, rules)."
   }
 }

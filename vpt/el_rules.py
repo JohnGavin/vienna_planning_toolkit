@@ -12,12 +12,13 @@ Suggestions, in MODEL coordinates (the drawing's units; k = model units per metr
            hinge), switch_from_frame_m (middle of the range) along the wall beyond the opening's edge and switch_inset_m
            (the side the door opens into: the opening line lies on that wall face) or switch_inset_other_m (the other side) into
            the room. A door whose swing could not be determined: no suggestion (said in the notes).
-  socket   the centre of every piece of the room's outline between its door openings (a door cuts an outline edge when its
-           opening runs along it within door_cut_max_m), pieces of at least socket_min_piece_m, socket_inset_m off the wall,
-           turned so the symbol's stem points to the wall. A room without an outline: could not tell (notes).
+  socket   the centre of every piece of the room's outline between its door openings and its window openings (an opening cuts
+           an outline edge when it runs along it within door_cut_max_m; a window's opening lengthened by window_margin_m at both
+           ends), pieces of at least socket_min_piece_m, socket_inset_m off the wall, turned so the symbol's stem points to the
+           wall. A room without an outline: could not tell (notes). Windows unknown (version-1 plan): said in the notes.
   light    the room centre: the outline's centroid when it lies inside the outline, else the label point.
-  kitchen  rooms whose label contains a kitchen_keywords word: along every wall piece, kitchen_end_margin_m from its ends, then
-           every kitchen_spacing_m.
+  kitchen  rooms whose label contains a kitchen_keywords word: along every wall piece (doors and windows cut out as for
+           sockets), kitchen_end_margin_m from its ends, then every kitchen_spacing_m.
 Each suggestion: {kind, x, y, rot, room, door?, side?, method?}. Notes per kind: lists of 'id: reason' (ids only, no names).
 """
 from __future__ import annotations
@@ -85,8 +86,12 @@ def validate(rules: dict, lib: dict) -> list[str]:
             if k.endswith("_m") and not (isinstance(x, (int, float)) and x > 0 or isinstance(x, list) and len(x) == 2
                                          and all(isinstance(t, (int, float)) and t >= 0 for t in x) and x[0] <= x[1]):
                 out.append(f"rule set {sid}: {k} must be a positive number or a range [from, to] with from <= to, got {x!r}")
-            if k == "kitchen_keywords" and not (isinstance(x, list) and x and all(isinstance(t, str) and t for t in x)):
+            if (k == "kitchen_keywords" or k.startswith("room_words_")) and not (isinstance(x, list) and x and all(isinstance(t, str) and t for t in x)):
                 out.append(f"rule set {sid}: {k} must be a list of words")
+            if k.endswith("_room_types") and not (isinstance(x, list) and all(t in (rules.get("checks") or {}).get("room_types", []) for t in x)):
+                out.append(f"rule set {sid}: {k} must be a list of room types {(rules.get('checks') or {}).get('room_types')}")
+            if k.startswith("check_min_") and not (isinstance(x, int) and not isinstance(x, bool) and x >= 0):
+                out.append(f"rule set {sid}: {k} must be a whole number of at least 0")
             if k == "ceiling_light_at" and x != "centre":
                 out.append(f"rule set {sid}: {k} must be 'centre' (the only rule built) or null")
     sets = lib.get("sets") or []
@@ -112,6 +117,22 @@ def validate(rules: dict, lib: dict) -> list[str]:
             out.append(f"switching.{f}: {sw.get(f)!r} is not a symbol category")
     if not (rules.get("links") or {}).get("layer", "").startswith("Elektro"):
         out.append("links.layer must be an Elektro layer")
+    ck = rules.get("checks") or {}
+    for f in ("socket_category", "appliance_category"):
+        if ck.get(f) not in cats:
+            out.append(f"checks.{f}: {ck.get(f)!r} is not a symbol category")
+    for f in ("cooker_codes", "smoke_codes"):
+        if not ck.get(f) or any(c not in all_codes for c in ck[f]):
+            out.append(f"checks.{f}: {ck.get(f)!r} must be symbol codes")
+    for c, n in (ck.get("outlets_per_symbol") or {}).items():
+        if c not in all_codes or not (isinstance(n, int) and n >= 1):
+            out.append(f"checks.outlets_per_symbol: {c}: {n!r} must be a symbol code with a whole number of at least 1")
+    rt = ck.get("room_types") or []
+    if "kitchen" not in rt or "wet" not in rt:
+        out.append("checks.room_types must hold kitchen and wet")
+    for t in rt:
+        if t not in ("kitchen", "wet") and f"room_words_{t}" not in keys:
+            out.append(f"checks.room_types: {t} has no rule room_words_{t}")
     st = rules.get("settings") or {}
     if not (isinstance(st.get("snap_radius_m"), (int, float)) and st["snap_radius_m"] > 0):
         out.append("settings.snap_radius_m must be a positive number")
@@ -131,6 +152,25 @@ def storey_input(storey: dict | None, k: float | None) -> tuple[list[dict], list
               "opens_into": d.get("opens_into"), "opens_from": d.get("opens_from"), "rooms": d.get("rooms") or []}
              for d in storey.get("doors") or []]
     return rooms, doors, k
+
+
+def storey_windows(storey: dict | None) -> list[dict] | None:
+    """The window openings [{id, p, q, rooms}] of one storey, or None when the storey does not list them (a version-1 plan
+    file: windows unknown)."""
+    if not storey or "windows" not in storey:
+        return None
+    return [{"id": w["id"], "p": w["p"], "q": w["q"], "rooms": w.get("rooms") or []} for w in storey["windows"]]
+
+
+def window_cuts(windows: list[dict] | None, margin: float) -> list[tuple]:
+    """Each window opening p -> q lengthened by margin (model units) at both ends: the stretch of wall the socket and kitchen
+    suggestions keep clear of."""
+    out = []
+    for w in windows or []:
+        p, q = tuple(w["p"]), tuple(w["q"])
+        u = _unit((q[0] - p[0], q[1] - p[1]))
+        out.append(((p[0] - u[0] * margin, p[1] - u[1] * margin), (q[0] + u[0] * margin, q[1] + u[1] * margin)))
+    return out
 
 
 # ---- geometry -----------------------------------------------------------------------------------------------------------------
@@ -258,8 +298,10 @@ def _r(v: float) -> float:
 
 # ---- the suggestions ----------------------------------------------------------------------------------------------------------
 
-def suggestions(rooms: list[dict], doors: list[dict], k: float | None, rules: dict, set_id: str) -> dict:
-    """{kind: [suggestion], "notes": {kind: [text]}} for one storey and one rule set (see the module docstring)."""
+def suggestions(rooms: list[dict], doors: list[dict], k: float | None, rules: dict, set_id: str,
+                windows: list[dict] | None = None) -> dict:
+    """{kind: [suggestion], "notes": {kind: [text]}} for one storey and one rule set (see the module docstring). windows: the
+    storey's window openings (storey_windows()); None = unknown (said in the socket and kitchen notes)."""
     out: dict = {kind: [] for kind in KINDS}
     notes: dict = {kind: [] for kind in KINDS}
     out["notes"] = notes
@@ -299,8 +341,13 @@ def suggestions(rooms: list[dict], doors: list[dict], k: float | None, rules: di
                 out["switch"].append({"kind": "switch", "x": _r(c[0] + u[0] * along + sgn * n[0] * dist),
                                       "y": _r(c[1] + u[1] * along + sgn * n[1] * dist), "rot": 0, "room": rid, "door": d["id"], "side": side})
 
+    if windows is None:
+        for kind in ("socket", "kitchen"):
+            notes[kind].append("windows unknown (the plan file does not list them): suggestions may sit in a window niche")
+    win_cuts = window_cuts(windows, (val("window_margin_m") or 0.0) * k)
+
     def wall_pieces(r):
-        cuts = [s for d in doors_of.get(r["id"], []) for s in openings(d)]
+        cuts = [s for d in doors_of.get(r["id"], []) for s in openings(d)] + win_cuts
         for a, b, n in walls_of(r["outline"]):
             u = _unit((b[0] - a[0], b[1] - a[1]))
             for t0, t1 in pieces(a, b, cuts, val("door_cut_max_m") * k):
