@@ -12,6 +12,10 @@ Modules:
     el_examples    generated example layouts (simple, complex)
     docs           popups (short bullets, with a gate), sortable tables, Documentation sections
     editor_page    the HTML of the editor page (both variants)
+    dwg_convert    DWG -> DXF (ODA File Converter or LibreDWG) and the completeness check of the DXF
+    layer_strip    the electrical base: layers deleted by storey, status and base name, with read-back checks
+    dxf_symbols    shape features and rules: symbols from plain DXF geometry
+    fittings       fittings recognised by shape and assigned to rooms
 """
 from __future__ import annotations
 
