@@ -220,3 +220,25 @@ def test_cli_exit_codes(generated, tmp_path, preset):
     garbage = tmp_path / "garbage.dxf"
     garbage.write_text("not a dxf file\n")
     assert _run_validator(garbage) == 3
+
+
+def test_dimension_parts_are_on_the_dimension_layer(doc, preset):
+    """The anonymous dimension blocks hold no entity on layer "0" (ezdxf puts the dimension and extension lines there);
+    only Defpoints (CAD's non-plotting layer) may differ. Model and paper space hold nothing on "0" either. The named
+    arrowhead blocks keep layer 0 on purpose: content on "0" takes the layer of the INSERT that places it."""
+    dim_layer = sf.layer_name(preset, "dimension")
+    anon = [b for b in doc.blocks if b.name.startswith("*D")]
+    assert len(anon) == len(preset["dimensions"])
+    for b in anon:
+        assert {e.dxf.layer for e in b} <= {dim_layer, "Defpoints"}, b.name
+        assert any(e.dxf.layer == dim_layer and e.dxftype() == "LINE" for e in b)
+    for space in (doc.modelspace(), doc.paperspace()):
+        assert all(e.dxf.layer != "0" for e in space)
+
+
+def test_dimension_layer_check_falsified(doc, preset):
+    """The same predicate goes red when a dimension line is put back on layer 0."""
+    dim_layer = sf.layer_name(preset, "dimension")
+    b = next(b for b in doc.blocks if b.name.startswith("*D"))
+    next(e for e in b if e.dxftype() == "LINE").dxf.layer = "0"
+    assert not {e.dxf.layer for e in b} <= {dim_layer, "Defpoints"}

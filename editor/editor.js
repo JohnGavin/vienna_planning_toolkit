@@ -753,6 +753,7 @@
         (sel === s.id ? '<rect class="el-sel" x="' + (b[0] - 0.6) + '" y="' + (b[1] - 0.6) + '" width="' + (b[2] + 1.2) + '" height="' + (b[3] + 1.2) +
           '" fill="none" stroke="' + PV('colours_print', 'selection') + '" stroke-width="0.3" stroke-dasharray="1 0.6"></rect>' : '') +
         '<circle class="el-anchor" cx="0" cy="0" r="0.05" fill="none" stroke="none"></circle>';
+      g.querySelectorAll('.el-symg text').forEach(function (t) { t.setAttribute('transform', 'rotate(' + (-ang) + ' ' + t.getAttribute('x') + ' ' + t.getAttribute('y') + ')'); });  // letters stay upright
       return g;
     }
     function linkEls(l) {

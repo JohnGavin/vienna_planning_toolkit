@@ -300,6 +300,11 @@ def draw_dimensions(msp, preset: dict) -> None:
         dim = msp.add_linear_dim(base=rnd(base), p1=rnd(p1), p2=rnd(p2), angle=d["angle"],
                                  dimstyle=preset["dimstyle"], dxfattribs={"layer": layer})
         dim.render()
+        # ezdxf draws the dimension and extension lines of the anonymous block on layer "0": keep them on the
+        # dimension layer (the points on Defpoints are the CAD convention for non-plotting definition points)
+        for part in msp.doc.blocks.get(dim.dimension.dxf.geometry):
+            if part.dxf.layer == "0":
+                part.dxf.layer = layer
 
 
 def draw_paper(doc, preset: dict) -> None:

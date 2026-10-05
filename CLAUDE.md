@@ -6,7 +6,7 @@ Global rules: `~/.claude/CLAUDE.md`. This file only adds project specifics.
 |-------|-------|
 | Environment | dev |
 | Visibility | intended public: generic tools only |
-| Targets pipeline | `_targets.R` (preset -> DXF -> validation -> plan file -> editor pages, Elektro DXF) |
+| Targets pipeline | `_targets.R` (preset -> DXF -> validation -> plan file -> editor pages, Elektro DXF; DXF tools on the sample) |
 | Languages | Python (ezdxf, shapely) for drawing tools and the page build; plain JS/CSS for the editor page; R `targets` for orchestration |
 
 ## Purpose
@@ -37,9 +37,12 @@ schema/                       JSON Schemas: plan file, layout file, parameter fi
 vpt/                          Python package (dxf_svg, plan_extract, plan, el_*, docs, editor_page)
 editor/                       the page's CSS and JS; `// @pages-only-start/end` regions are left out of the artifact
 tools/export_plan.py, export_layout_dxf.py, build_editor.py, check_editor.py (+ cdp.py)   plan export, layout -> DXF, page build (+ gates), headless Chrome/Edge check
+vpt/dwg_convert.py, tools/dwg_convert.py, presets/dwg_convert.json, nix/libredwg.nix   DWG -> DXF (ODA File Converter, else LibreDWG 0.14) + completeness check
+vpt/layer_strip.py, tools/strip_layers.py, presets/layer_strip.json   electrical base: delete layers by storey / status / base name, checks X1-X8
+vpt/dxf_symbols.py, vpt/fittings.py, tools/recognise_fittings.py, presets/fittings.json   fittings recognised by shape, rooms from plan_extract, checks F1-F3
 site/, artifact/              built pages (committed; CI fails when out of date)
 tests/                        pytest suite incl. falsification tests
-_targets.R                    pipeline: preset + generator -> DXF -> validation -> plan file -> pages
+_targets.R                    pipeline: preset + generator -> DXF -> validation -> plan file -> pages, Elektro DXF, DXF tools
 default.R / default.nix       rix environment (regenerate, never hand-edit default.nix)
 ```
 
