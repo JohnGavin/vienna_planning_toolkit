@@ -104,7 +104,8 @@ def test_the_two_door_room_is_the_wohnzimmer(flat, preset):
 
 def test_checks_all_match(flat):
     (st,) = flat["storeys"]
-    assert [c["status"] for c in st["checks"]] == ["match"] * 5
+    assert [c["id"] for c in st["checks"]] == ["R1", "R2", "R3", "R4", "R5", "R6"]
+    assert [c["status"] for c in st["checks"]] == ["match"] * 6
 
 
 def test_no_door_arcs_could_not_tell(generated):
@@ -139,3 +140,86 @@ def test_layer_info_and_storey_labels():
     assert info["0"]["storey"] is None
     assert pe.layer_info(["Walls", "Doors"], PRE)["Walls"] == {"storey": "all", "status": None, "base": "Walls"}
     assert pe.storey_label("EG", PRE) == "Erdgeschoss" and pe.storey_label("3OG", PRE) == "3. Obergeschoss" and pe.storey_label("X", PRE) == "X"
+
+
+# ---- windows ------------------------------------------------------------------------------------------------------------------
+
+def expected_windows(preset):
+    """Per preset window: the opening's two ends in the middle of its wall, its width, and the room whose rectangle holds a point
+    half a metre inside the wall (from the preset geometry, independent of the extraction)."""
+    walls = {w["id"]: sf.Wall(preset, w) for w in preset["walls"]}
+    rooms = [(r["name"], box(*sf.rect_of(preset, r))) for r in preset["rooms"]]
+    out = []
+    for f in preset["windows"]:
+        w = walls[f["wall"]]
+        c0, c1 = w.cross
+        mid = (c0 + c1) / 2
+        a0, a1 = f["from"], f["from"] + f["width"]
+        names = {n for c in (c0 - 0.5, c1 + 0.5) for n, g in rooms if g.contains(Point(*w.pt((a0 + a1) / 2, c)))}
+        out.append({"ends": {w.pt(a0, mid), w.pt(a1, mid)}, "width": f["width"], "rooms": names})
+    return out
+
+
+def window_problems(st, exp) -> list[str]:
+    names = {r["id"]: r["name"] for r in st["rooms"]}
+    got = {frozenset((round(x, 6), round(y, 6)) for x, y in (w["p"], w["q"])): w for w in st["windows"]}
+    out = []
+    for e in exp:
+        key = frozenset((round(x, 6), round(y, 6)) for x, y in e["ends"])
+        w = got.pop(key, None)
+        if w is None:
+            out.append(f"missing window at {sorted(key)}")
+        elif w["width_m"] != pytest.approx(e["width"], abs=1e-6) or {names[r] for r in w["rooms"]} != e["rooms"]:
+            out.append(f"{w['id']}: width {w['width_m']} rooms {[names[r] for r in w['rooms']]}")
+    return out + [f"extra window {w['id']}" for w in got.values()]
+
+
+def test_windows_are_the_drawn_ones(flat, preset):
+    (st,) = flat["storeys"]
+    assert len(st["windows"]) == len(preset["windows"])
+    assert window_problems(st, expected_windows(preset)) == []
+    assert all(w["wall_ids"] and w["depth_m"] > 0 for w in st["windows"])
+    # falsified: a window moved by 10 cm is reported (missing at its place, extra elsewhere)
+    bad = copy.deepcopy(st)
+    bad["windows"][0]["p"][0] += 0.1
+    bad["windows"][0]["q"][0] += 0.1
+    assert len(window_problems(bad, expected_windows(preset))) == 2
+
+
+def _fenster(doc):
+    return [e for e in doc.modelspace() if e.dxf.layer.endswith("_Fenster")]
+
+
+def test_a_deleted_window_is_not_found(generated):
+    doc = ezdxf.readfile(generated[0])
+    ws = pe.extract(doc, PRE)["storeys"][0]["windows"]
+    first = ws[0]
+    xs, ys = sorted([first["p"][0], first["q"][0]]), sorted([first["p"][1], first["q"][1]])
+    for e in _fenster(doc):            # every line of the first window (its box, widened by the sill overhang and the wall)
+        a, b = e.dxf.start, e.dxf.end
+        if all(xs[0] - 0.1 <= p.x <= xs[1] + 0.1 and ys[0] - 0.4 <= p.y <= ys[1] + 0.4 for p in (a, b)):
+            doc.modelspace().delete_entity(e)
+    st = pe.extract(doc, PRE)["storeys"][0]
+    assert len(st["windows"]) == len(ws) - 1
+    assert {c["id"]: c["status"] for c in st["checks"]}["R6"] == "match"
+
+
+def test_no_windows_could_not_tell(generated):
+    doc = ezdxf.readfile(generated[0])
+    for e in _fenster(doc):
+        doc.modelspace().delete_entity(e)
+    r = pe.extract(doc, PRE)
+    st = r["storeys"][0]
+    assert st["windows"] == [] and r["status"] == "INDETERMINATE"
+    r6 = next(c for c in st["checks"] if c["id"] == "R6")
+    assert r6["status"] == "could-not-tell" and "no window" in r6["detail"]
+
+
+def test_window_drawing_order_does_not_matter(generated):
+    doc = ezdxf.readfile(generated[0])
+    for e in _fenster(doc):             # every window line drawn the other way round
+        e.dxf.start, e.dxf.end = e.dxf.end, e.dxf.start
+    flipped = pe.extract(doc, PRE)["storeys"][0]["windows"]
+    plain = pe.extract(ezdxf.readfile(generated[0]), PRE)["storeys"][0]["windows"]
+    key = lambda w: (w["id"], sorted(map(tuple, (w["p"], w["q"]))), w["width_m"], w["rooms"])
+    assert [key(w) for w in flipped] == [key(w) for w in plain]

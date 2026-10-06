@@ -213,3 +213,49 @@ def test_storey_input_from_a_plan_storey():
     assert doors[0]["hinge"] == [1, 0] and doors[0]["ends"]["a"] == [2, 0]
     assert el_rules.storey_input(st, 1000.0)[2] == 1000.0                     # a drawing in mm: 1000 model units per metre
     assert el_rules.storey_input(None, 1.0) == ([], [], None)                 # no storey: nothing, could not tell
+
+
+# ---- windows: sockets and kitchen outlets keep clear, switches do not care -----------------------------------------------------
+
+WIN = {"id": "st1-F1", "p": [1.4, 3.25], "q": [2.6, 3.25], "rooms": ["st1-R1"]}     # 1.2 m window in the middle of the top wall
+
+
+def test_wall_centre_socket_in_a_window_moves_to_the_pieces_beside_it():
+    margin = el_rules.value(RULES, "starting", "window_margin_m")
+    top = lambda s: sorted(round(x["x"], 6) for x in s if abs(x["y"] - 2.9) < 1e-9)
+    no_win = sug([room()], [door()])["socket"]
+    with_win = el_rules.suggestions([room()], [door()], 1.0, RULES, "starting", windows=[WIN])["socket"]
+    # without the window the top wall's centre (2.0) is suggested: inside the window (falsified: the check sees it)
+    assert top(no_win) == [2.0] and 1.4 <= 2.0 <= 2.6
+    # with it the top wall is split around the window and its margin: 0 .. 1.4-m and 2.6+m .. 4
+    lo, hi = 1.4 - margin, 2.6 + margin
+    assert top(with_win) == [round(lo / 2, 6), round((hi + 4.0) / 2, 6)]
+    assert all(not (1.4 - margin < x < 2.6 + margin) for x in top(with_win))
+    rest = lambda s: _pts([x for x in s if abs(x["y"] - 2.9) > 1e-9])
+    assert rest(with_win) == rest(no_win)
+
+
+def test_window_margin_is_the_parameters_value():
+    r = copy.deepcopy(RULES)
+    r["values"]["starting"]["window_margin_m"]["value"] = 0.5
+    s = el_rules.suggestions([room()], [door()], 1.0, r, "starting", windows=[WIN])["socket"]
+    assert sorted(round(x["x"], 6) for x in s if abs(x["y"] - 2.9) < 1e-9) == [0.45, 3.55]
+
+
+def test_window_margin_null_gives_no_socket_suggestion():
+    r = copy.deepcopy(RULES)
+    r["values"]["starting"]["window_margin_m"]["value"] = None
+    out = el_rules.suggestions([room()], [door()], 1.0, r, "starting", windows=[WIN])
+    assert out["socket"] == [] and out["kitchen"] == [] and any("window_margin_m" in n for n in out["notes"]["socket"])
+
+
+def test_kitchen_outlets_keep_clear_of_windows_and_switches_do_not_move():
+    k = room(name="Küche")
+    with_win = el_rules.suggestions([k], [door()], 1.0, RULES, "starting", windows=[WIN])
+    no_win = el_rules.suggestions([k], [door()], 1.0, RULES, "starting", windows=[])
+    margin = el_rules.value(RULES, "starting", "window_margin_m")
+    top = lambda s: [round(x["x"], 6) for x in s if abs(x["y"] - 2.9) < 1e-9]
+    assert any(1.4 <= x <= 2.6 for x in top(no_win["kitchen"]))
+    assert top(with_win["kitchen"]) and all(not (1.4 - margin < x < 2.6 + margin) for x in top(with_win["kitchen"]))
+    assert with_win["switch"] == no_win["switch"] and with_win["light"] == no_win["light"]
+    assert not any("windows unknown" in n for n in with_win["notes"]["socket"])

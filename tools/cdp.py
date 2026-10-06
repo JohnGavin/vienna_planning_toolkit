@@ -26,6 +26,8 @@ import time
 import urllib.request
 
 CHROME = os.environ.get("VPT_CHROME", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+EDGE = os.environ.get("VPT_EDGE", "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge")
+BROWSERS = {"chrome": CHROME, "edge": EDGE}          # both Chromium: the same DevTools protocol
 SCRATCH = pathlib.Path(__file__).resolve().parent.parent / "_scratch"
 
 
@@ -102,7 +104,9 @@ class _WS:
 
 
 class Browser:
-    def __init__(self, flags: list[str] | None = None, size: tuple[int, int] = (1400, 1000), call_timeout: float = 30.0):
+    def __init__(self, flags: list[str] | None = None, size: tuple[int, int] = (1400, 1000), call_timeout: float = 30.0,
+                 binary: str | None = None):
+        self.binary = binary or CHROME
         self.flags = flags or []
         self.call_timeout = call_timeout
         self.size = size
@@ -121,11 +125,11 @@ class Browser:
             raise
 
     def _start(self):
-        if not pathlib.Path(CHROME).exists():
-            raise FileNotFoundError(CHROME)
+        if not pathlib.Path(self.binary).exists():
+            raise FileNotFoundError(self.binary)
         SCRATCH.mkdir(parents=True, exist_ok=True)
         self.profile = tempfile.mkdtemp(prefix="cdp_profile_", dir=SCRATCH)
-        self.proc = subprocess.Popen([CHROME, "--headless=new", "--disable-gpu", "--no-first-run", "--disable-extensions",
+        self.proc = subprocess.Popen([self.binary, "--headless=new", "--disable-gpu", "--no-first-run", "--disable-extensions",
                                       "--no-default-browser-check", "--hide-scrollbars", f"--window-size={self.size[0]},{self.size[1]}",
                                       "--remote-debugging-address=127.0.0.1", "--remote-debugging-port=0", f"--user-data-dir={self.profile}",
                                       *self.flags, "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

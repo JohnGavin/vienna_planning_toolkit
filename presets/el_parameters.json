@@ -349,7 +349,7 @@
   "contrast_min_note": "WCAG 2.1 success criterion 1.4.11 (non-text contrast): 3:1 for graphical objects. Every symbol, link, marker and selection colour of both palettes is checked against its palette's background by the tests.",
   "rules": {
     "label": "Placement rules",
-    "note": "Two rule sets with the same keys. A rule whose value is null gives no suggestion and its hint says 'no value yet'. The suggestions are computed by vpt/el_rules.py when the plan file is exported (tools/export_plan.py): a changed geometry value takes effect on the page after the plan is exported again with this file.",
+    "note": "Two rule sets with the same keys. A rule whose value is null gives no suggestion, and a layout check that needs it says 'could not tell: no value yet'. The suggestions are computed by vpt/el_rules.py when the plan file is exported (tools/export_plan.py): a changed geometry value takes effect on the page after the plan is exported again with this file.",
     "default_rule_set": "starting",
     "rule_sets": [
       {
@@ -400,7 +400,13 @@
         "label": "Door opening cuts a wall piece within",
         "unit": "m",
         "kind": "socket",
-        "text": "A door's opening cuts a piece of the room's outline when the opening runs along it and lies at most this far from it (about one wall thickness). Used for sockets and kitchen outlets."
+        "text": "A door's or window's opening cuts a piece of the room's outline when the opening runs along it and lies at most this far from it (about one wall thickness). Used for sockets and kitchen outlets."
+      },
+      "window_margin_m": {
+        "label": "Window: sockets keep clear by",
+        "unit": "m",
+        "kind": "socket",
+        "text": "Socket and kitchen suggestions keep clear of each window opening (from the plan file) and of this much wall on both sides of it; a wall piece with a window is split there."
       },
       "ceiling_light_at": {
         "label": "Ceiling light: where",
@@ -427,10 +433,82 @@
         "text": "The first and last kitchen suggestion of a wall piece lie this far from its ends (doors, corners)."
       },
       "hint_switch_near_door_m": {
-        "label": "Hint: a switch counts for a door within",
+        "label": "Check: a switch counts for a door within",
         "unit": "m",
-        "kind": "hint",
-        "text": "Layout hint 'door without a switch': a door of a room with a light counts as having a switch when a switch or push-button symbol lies within this distance of the door's opening."
+        "kind": "check",
+        "text": "Layout check H3 'door without a switch': a door of a room with a light counts as having a switch when a switch or push-button symbol lies within this distance of the door's opening."
+      },
+      "room_words_living": {
+        "label": "Room type living: label words",
+        "unit": "words (case ignored)",
+        "kind": "check",
+        "text": "A room whose label contains one of these words is a living room (layout checks). Kitchens and wet rooms are told first."
+      },
+      "room_words_bedroom": {
+        "label": "Room type bedroom: label words",
+        "unit": "words (case ignored)",
+        "kind": "check",
+        "text": "A room whose label contains one of these words is a bedroom (layout checks)."
+      },
+      "room_words_hall": {
+        "label": "Room type hall: label words",
+        "unit": "words (case ignored)",
+        "kind": "check",
+        "text": "A room whose label contains one of these words is a hall or corridor (layout checks)."
+      },
+      "room_words_storage": {
+        "label": "Room type storage: label words",
+        "unit": "words (case ignored)",
+        "kind": "check",
+        "text": "A room whose label contains one of these words is a storeroom (layout checks): known, so its type is not 'could not tell'."
+      },
+      "check_light_room_types": {
+        "label": "Check: rooms that need a light",
+        "unit": "room types",
+        "kind": "check",
+        "text": "Layout check: every room of these types has at least one light symbol (the room types: presets/el_rules_at.json checks.room_types)."
+      },
+      "check_min_sockets_living": {
+        "label": "Check: sockets in a living room, at least",
+        "unit": "outlets",
+        "kind": "check",
+        "text": "Layout check: a living room has at least this many socket outlets (a double socket counts two)."
+      },
+      "check_min_sockets_bedroom": {
+        "label": "Check: sockets in a bedroom, at least",
+        "unit": "outlets",
+        "kind": "check",
+        "text": "Layout check: a bedroom has at least this many socket outlets."
+      },
+      "check_min_sockets_kitchen": {
+        "label": "Check: sockets in a kitchen, at least",
+        "unit": "outlets",
+        "kind": "check",
+        "text": "Layout check: a kitchen has at least this many socket outlets, besides its appliance outlets."
+      },
+      "check_min_sockets_wet": {
+        "label": "Check: sockets in a wet room, at least",
+        "unit": "outlets",
+        "kind": "check",
+        "text": "Layout check: a wet room (bath, WC) has at least this many socket outlets. Where in the room they may go (shower and bath zones) is not checked."
+      },
+      "check_min_sockets_hall": {
+        "label": "Check: sockets in a hall, at least",
+        "unit": "outlets",
+        "kind": "check",
+        "text": "Layout check: a hall has at least this many socket outlets."
+      },
+      "check_min_appliance_outlets_kitchen": {
+        "label": "Check: appliance outlets in a kitchen, at least",
+        "unit": "outlets",
+        "kind": "check",
+        "text": "Layout check: a kitchen has at least this many appliance outlets (the kitchen and appliance symbols), one of them a cooker outlet."
+      },
+      "check_smoke_room_types": {
+        "label": "Check: rooms that need a smoke alarm",
+        "unit": "room types",
+        "kind": "check",
+        "text": "Layout check: every room of these types has a smoke alarm symbol."
       }
     },
     "values": {
@@ -468,6 +546,11 @@
           "mark": "starting value – confirm",
           "source": "Our guess at a thick Altbau wall plus a margin; not measured."
         },
+        "window_margin_m": {
+          "value": 0.2,
+          "mark": "starting value – confirm",
+          "source": "Our guess: room for the window reveal and a curtain; not measured and not from any standard."
+        },
         "ceiling_light_at": {
           "value": "centre",
           "mark": "starting value – confirm",
@@ -499,6 +582,98 @@
           "value": 1.0,
           "mark": "starting value – confirm",
           "source": "Our choice: a switch more than about an arm's length from the door is not 'at the door'. Not from any standard."
+        },
+        "room_words_living": {
+          "value": [
+            "wohn",
+            "living",
+            "salon",
+            "esszimmer"
+          ],
+          "mark": "starting value – confirm",
+          "source": "Our list of German and English words; check it against the room labels of the drawing."
+        },
+        "room_words_bedroom": {
+          "value": [
+            "schlaf",
+            "kinder",
+            "gäste",
+            "gaeste",
+            "bedroom"
+          ],
+          "mark": "starting value – confirm",
+          "source": "Our list of German and English words; check it against the room labels of the drawing."
+        },
+        "room_words_hall": {
+          "value": [
+            "vorraum",
+            "vorzimmer",
+            "flur",
+            "diele",
+            "gang",
+            "hall"
+          ],
+          "mark": "starting value – confirm",
+          "source": "Our list of German and English words; check it against the room labels of the drawing."
+        },
+        "room_words_storage": {
+          "value": [
+            "abstell",
+            "speis",
+            "lager",
+            "storage"
+          ],
+          "mark": "starting value – confirm",
+          "source": "Our list of German and English words; check it against the room labels of the drawing."
+        },
+        "check_light_room_types": {
+          "value": [
+            "kitchen",
+            "wet",
+            "living",
+            "bedroom",
+            "hall"
+          ],
+          "mark": "starting value – confirm",
+          "source": "Our starting value, not from a standard; most rooms of a flat get a ceiling outlet."
+        },
+        "check_min_sockets_living": {
+          "value": 4,
+          "mark": "starting value – confirm",
+          "source": "Our starting value, not from a standard; ÖVE and DIN guidance on numbers of outlets was not checked."
+        },
+        "check_min_sockets_bedroom": {
+          "value": 3,
+          "mark": "starting value – confirm",
+          "source": "Our starting value, not from a standard; ÖVE and DIN guidance on numbers of outlets was not checked."
+        },
+        "check_min_sockets_kitchen": {
+          "value": 4,
+          "mark": "starting value – confirm",
+          "source": "Our starting value, not from a standard; ÖVE and DIN guidance on numbers of outlets was not checked."
+        },
+        "check_min_sockets_wet": {
+          "value": 1,
+          "mark": "starting value – confirm",
+          "source": "Our starting value, not from a standard; ÖVE and DIN guidance on numbers of outlets was not checked."
+        },
+        "check_min_sockets_hall": {
+          "value": 1,
+          "mark": "starting value – confirm",
+          "source": "Our starting value, not from a standard; ÖVE and DIN guidance on numbers of outlets was not checked."
+        },
+        "check_min_appliance_outlets_kitchen": {
+          "value": 2,
+          "mark": "starting value – confirm",
+          "source": "Our starting value, not from a standard: a cooker and a dishwasher."
+        },
+        "check_smoke_room_types": {
+          "value": [
+            "bedroom",
+            "hall"
+          ],
+          "mark": "starting value – confirm",
+          "source": "Our starting value, not from a standard; the Austrian rules on smoke alarms (building regulations, OIB guidelines) were not checked."
         }
       },
       "elektroplaner": {
@@ -526,6 +701,10 @@
           "value": null,
           "source": null
         },
+        "window_margin_m": {
+          "value": null,
+          "source": null
+        },
         "ceiling_light_at": {
           "value": null,
           "source": null
@@ -543,6 +722,54 @@
           "source": null
         },
         "hint_switch_near_door_m": {
+          "value": null,
+          "source": null
+        },
+        "room_words_living": {
+          "value": null,
+          "source": null
+        },
+        "room_words_bedroom": {
+          "value": null,
+          "source": null
+        },
+        "room_words_hall": {
+          "value": null,
+          "source": null
+        },
+        "room_words_storage": {
+          "value": null,
+          "source": null
+        },
+        "check_light_room_types": {
+          "value": null,
+          "source": null
+        },
+        "check_min_sockets_living": {
+          "value": null,
+          "source": null
+        },
+        "check_min_sockets_bedroom": {
+          "value": null,
+          "source": null
+        },
+        "check_min_sockets_kitchen": {
+          "value": null,
+          "source": null
+        },
+        "check_min_sockets_wet": {
+          "value": null,
+          "source": null
+        },
+        "check_min_sockets_hall": {
+          "value": null,
+          "source": null
+        },
+        "check_min_appliance_outlets_kitchen": {
+          "value": null,
+          "source": null
+        },
+        "check_smoke_room_types": {
           "value": null,
           "source": null
         }

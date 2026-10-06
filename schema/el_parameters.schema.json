@@ -222,7 +222,8 @@
             "socket",
             "light",
             "kitchen",
-            "hint"
+            "hint",
+            "check"
           ]
         },
         "text": {

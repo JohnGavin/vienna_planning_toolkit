@@ -16,6 +16,7 @@ doc-el-colours
 doc-el-connect
 doc-el-copy-layout
 doc-el-delete
+doc-el-dxf-export
 doc-el-el-layers
 doc-el-example
 doc-el-example-clear
@@ -24,8 +25,15 @@ doc-el-groups
 doc-el-hint-h1
 doc-el-hint-h2
 doc-el-hint-h3
+doc-el-hint-h4
+doc-el-hint-h5
+doc-el-hint-h6
+doc-el-hint-h7
+doc-el-hint-h8
+doc-el-hint-h9
 doc-el-hints
 doc-el-howto
+doc-el-howto-cad
 doc-el-howto-connect
 doc-el-howto-edit
 doc-el-howto-example

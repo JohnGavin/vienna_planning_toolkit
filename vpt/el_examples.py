@@ -68,7 +68,7 @@ def choose(storeys: list[dict], k: float | None, rules: dict, params: dict) -> d
         rooms, doors, kk = el_rules.storey_input(st, k)
         if not kk:
             continue
-        sug = el_rules.suggestions(rooms, doors, kk, rules, "starting")
+        sug = el_rules.suggestions(rooms, doors, kk, rules, "starting", windows=el_rules.storey_windows(st))
         for r in sorted(rooms, key=lambda r: (el_links._num(r["id"].rsplit("-", 1)[-1]), r["id"])):
             if (r.get("outline") and any(s["room"] == r["id"] for s in sug["light"])
                     and len(_door_switches(sug, r["id"])) == ex["simple_doors"]

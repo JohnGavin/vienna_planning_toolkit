@@ -3,7 +3,8 @@ schema/plan.schema.json, the one home of the format). Written by tools/export_pl
 reads it in the browser (Open plan, or paste) and never sends it anywhere.
 
 Per storey: the drawing as SVG with one group per DXF layer, the layer list (base name, status, paths, shown at start), the
-model -> SVG affine, rooms / doors / walls (vpt/plan_extract.py), the checks R1-R5, the placement suggestions of every rule
+model -> SVG affine, rooms / doors / walls / windows (vpt/plan_extract.py; windows since version 2: a version-1 file still opens
+and its windows are unknown), the checks R1-R6, the placement suggestions of every rule
 set (vpt/el_rules.py) and, for the example storey, the generated example layouts (vpt/el_examples.py).
 
 check_text() gives the page's three outcomes for an opened file: "match" (a valid plan file), "different" (a valid JSON file of
@@ -22,7 +23,7 @@ from vpt import PRESETS, SCHEMAS, dxf_svg, el_examples, el_layout, el_params, el
 SCHEMA = SCHEMAS / "plan.schema.json"
 EXTRACT_PRESET = PRESETS / "plan_extract.json"
 KIND = "vpt_plan"
-VERSION = 1
+VERSION = 2                 # 2: every storey has its windows; a version-1 file still opens (windows unknown)
 
 
 def load_schema(path: pathlib.Path = SCHEMA) -> dict:
@@ -120,6 +121,7 @@ def export(dxf_path: pathlib.Path, *, synthetic: bool = False, pre: dict | None 
         on = [x["layer"] for x in layers if x["default_on"]]
         backgrounds[key] = {"layers": on, "hidden_layers": len(layers) - len(on)}
         rooms, doors, kk = el_rules.storey_input(st, k)
+        windows = el_rules.storey_windows(st)
         storeys.append({"key": key, "label": st["label"], "svg": svg, "layers": layers,
                         "affine": [round(v, 9) for v in r["affine"]], "view_box": vb,
                         "page_mm": [round(page["width_mm"], 3), round(page["height_mm"], 3)], "scale_1_to": pre["render"]["scale_1_to"],
@@ -128,8 +130,9 @@ def export(dxf_path: pathlib.Path, *, synthetic: bool = False, pre: dict | None 
                         "doors": [{f: d[f] for f in ("id", "hinge", "ends", "closed_end", "opens_into", "opens_from", "rooms", "width_m",
                                                      "swing_method", "leads_to", "pair") if f in d} for d in st["doors"]],
                         "walls": [{f: w[f] for f in ("id", "base", "status", "p", "q", "rooms")} for w in st["walls"]],
+                        "windows": [{f: w[f] for f in ("id", "p", "q", "width_m", "depth_m", "wall_ids", "rooms")} for w in st["windows"]],
                         "checks": [{f: c[f] for f in ("id", "title", "status", "detail")} for c in st["checks"]],
-                        "suggest": {rs["id"]: el_rules.suggestions(rooms, doors, kk, rules, rs["id"]) for rs in rules["rule_sets"]},
+                        "suggest": {rs["id"]: el_rules.suggestions(rooms, doors, kk, rules, rs["id"], windows=windows) for rs in rules["rule_sets"]},
                         "examples": None})
     exs = el_examples.build(ex["storeys"], k=k, mm_per_unit=mm, drawing_file=dxf_path.name, sha256=sha, background=backgrounds,
                             rules=rules, params=params, lib=lib, params_sha256=psha)
@@ -163,6 +166,9 @@ def check(plan, schema: dict | None = None) -> tuple[str, str]:
     if probs:
         return "could-not-tell", f"not a valid plan file ({len(probs)} problem(s), first: {probs[0]})"
     for st in plan["storeys"]:
+        if (plan["schema_version"] >= 2) != ("windows" in st):
+            return "could-not-tell", (f"storey {st['key']}: a version-{plan['schema_version']} plan file "
+                                      + ("must list its windows" if plan["schema_version"] >= 2 else "has no windows (they came with version 2)"))
         try:
             info = dxf_svg.inspect(st["svg"])
         except (ET.ParseError, ValueError) as e:
@@ -173,7 +179,9 @@ def check(plan, schema: dict | None = None) -> tuple[str, str]:
         if abs(a[0] * a[3] - a[1] * a[2]) < 1e-12:
             return "could-not-tell", f"storey {st['key']}: the drawing's affine cannot be inverted"
     n = len(plan["storeys"])
-    return "match", f"{n} storey(s), {sum(len(s['rooms']) for s in plan['storeys'])} rooms, {sum(len(s['doors']) for s in plan['storeys'])} doors"
+    win = (f"{sum(len(s['windows']) for s in plan['storeys'])} windows" if plan["schema_version"] >= 2
+           else "windows unknown (version-1 file)")
+    return "match", f"{n} storey(s), {sum(len(s['rooms']) for s in plan['storeys'])} rooms, {sum(len(s['doors']) for s in plan['storeys'])} doors, {win}"
 
 
 def check_text(text: str, schema: dict | None = None) -> tuple[str, str]:

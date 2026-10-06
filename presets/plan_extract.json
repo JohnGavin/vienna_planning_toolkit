@@ -19,7 +19,8 @@
     "room_labels": ["Raumstempel"],
     "room_polygons": ["Zonen"],
     "walls": ["Wand_tragend", "Wand_nichttragend"],
-    "doors": ["Tueren"]
+    "doors": ["Tueren"],
+    "windows": ["Fenster"]
   },
   "extra_outline_layers": [],
   "label_area_regex": "([0-9]+(?:[.,][0-9]+)?)\\s*m(?:²|2)",
@@ -37,6 +38,16 @@
     "side_probe_m": [0.3, 0.6, 0.9, 1.2, 1.5],
     "double_tol_m": 0.05,
     "note": "A door is an ARC on a door layer with radius in radius_m (the leaf width) and sweep in sweep_deg. Hinge = the arc centre. Closed end of the arc (the opening): the end with NO line from the hinge when exactly one end has one (within leaf_tol_m; that line is the open leaf), else the only end that touches a wall segment (within leaf_tol_m: the far edge of the opening, where the wall goes on), else the end whose direction from the hinge runs along (within wall_angle_tol_deg) a wall segment of at least wall_min_len_m within wall_search_m of the hinge, else could not tell. Rooms on both sides: probe points from the middle of the opening along and against the open leaf at the side_probe_m distances (the first that finds a room wins). Two leaves whose closed ends lie within double_tol_m are a pair (double door)."
+  },
+  "windows": {
+    "parallel_deg": 5,
+    "max_depth_m": 1.0,
+    "join_m": 0.1,
+    "min_width_m": 0.3,
+    "wall_tol_m": 0.05,
+    "edge_tol_m": 0.02,
+    "side_probe_m": [0.3, 0.6, 0.9, 1.2],
+    "note": "A window is a group of straight lines on a window layer: lines of at least min_width_m running in the same direction (within parallel_deg) whose extents along it overlap and that lie at most max_depth_m apart across (the wall's frames, sills and faces), plus short lines within join_m of the group (sill ends). Opening: along the group's direction, from the median start to the median end of its parallel lines (a window board that sticks out past the opening does not widen it); across, the middle between its outermost lines that start and end within edge_tol_m of the opening's edges. Openings narrower than min_width_m are left out. Wall pieces: wall segments running the same way that end within wall_tol_m of the opening's edges inside its depth. Rooms: probe points from the opening's middle on both sides, beyond its depth, at the side_probe_m distances (the first that finds a room wins)."
   },
   "walls": {
     "room_tol_m": 0.05,

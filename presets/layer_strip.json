@@ -1,0 +1,17 @@
+{
+  "name": "layer_strip",
+  "description": "Electrical planning base (vpt/layer_strip.py, tools/strip_layers.py): which layers of a DXF stay when the base for the electrical plan is made. Lists hold BASE layer names (the part after <storey>_<nn>_[Abbruch_|Neubau_]), written for the toolkit's synthetic flat: replace them with the base names of your own drawing.",
+  "status": "starting value - confirm",
+  "keep": [
+    "Wand_tragend", "Wand_nichttragend", "Fenster", "Tueren", "Moeblierung", "Sanitaereinrichtung", "Kuecheneinrichtung", "Zonen", "Raumstempel"
+  ],
+  "drop": [
+    "Bemassung", "Decke", "Plankopf"
+  ],
+  "undecided": [],
+  "undecided_policy": "A layer with content on no list is kept and flagged (could-not-tell) until it is decided: keeping loses nothing.",
+  "ignore": ["0", "Defpoints", "VIEWPORTS"],
+  "ignore_note": "CAD's own layers (0, Defpoints, and VIEWPORTS, the layer a paper-space viewport is put on by default): left untouched, not classified.",
+  "drop_status": ["Abbruch"],
+  "drop_status_note": "Layers with these status prefixes are dropped whatever their base name: demolished content is not wired. Neubau (new) stays."
+}

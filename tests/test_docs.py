@@ -113,5 +113,5 @@ def test_parameter_panel_tabs_cover_every_section_once():
     rules = sorted(t["rules"] for t in d.t["params_panel"]["tabs"] if "rules" in t)
     assert rules == ["export", "live"]
     # the "live" rules tab is not empty, and every section outside LIVE_SECTIONS is shown as needing a re-export
-    assert set(el_params.LIVE_RULES) <= set(p["rules"]["definitions"])
+    assert "hint_switch_near_door_m" in el_params.live_rules(p) and set(el_params.live_rules(p)) <= set(p["rules"]["definitions"])
     assert set(p["sections"]) - set(el_params.LIVE_SECTIONS) == {"examples"}

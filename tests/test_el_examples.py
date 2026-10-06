@@ -44,7 +44,7 @@ def test_examples_are_valid_derived_and_open(ex, ex_id):
     flat, out = ex
     doc = out["examples"][ex_id]
     rooms, doors, k = el_rules.storey_input(flat["storeys"][0], flat["k"])
-    sug = el_rules.suggestions(rooms, doors, k, RULES, "starting")
+    sug = el_rules.suggestions(rooms, doors, k, RULES, "starting", windows=el_rules.storey_windows(flat["storeys"][0]))
     assert el_examples.off_suggestion(doc, sug, RULES, PARAMS, k) == []
     assert el_layout.check_layout(doc, sha256="ab" * 32, storey=out["storey"], lib=LIB, schema=el_layout.load_schema(), rules=RULES)[0] == "match"
     assert doc["example"]["id"] == ex_id and el_links.link_problems(doc["symbols"], doc["links"], el_symbols.default_set(LIB), RULES["switching"]) == []
@@ -55,7 +55,7 @@ def test_off_suggestion_falsified(ex):
     doc = copy.deepcopy(out["examples"]["simple"])
     doc["symbols"][0]["x"] += 0.3
     rooms, doors, k = el_rules.storey_input(flat["storeys"][0], flat["k"])
-    sug = el_rules.suggestions(rooms, doors, k, RULES, "starting")
+    sug = el_rules.suggestions(rooms, doors, k, RULES, "starting", windows=el_rules.storey_windows(flat["storeys"][0]))
     assert el_examples.off_suggestion(doc, sug, RULES, PARAMS, k) == [doc["symbols"][0]["id"]]
 
 

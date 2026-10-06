@@ -33,7 +33,8 @@
     "chips": {"symbols": "**{n}** symbols", "unverified": "symbols **UNVERIFIED**", "rule_sets": "**{n}** rule sets", "storeys": "**{n}** storey in the sample", "local": "nothing uploaded"},
     "tags": {"unverified": "verify", "set": "verify", "save": "Pages version", "save_in_place": "Chrome, Edge", "params_save": "Pages version",
              "print": "Pages version", "copy_layout": "both versions", "rules_select": "to confirm", "suggestions": "not printed", "sug_all": "not printed",
-             "autosave": "this browser", "plan": "3 outcomes", "open": "3 outcomes", "params_load": "3 outcomes", "hints": "3 outcomes"},
+             "autosave": "this browser", "plan": "3 outcomes", "open": "3 outcomes", "params_load": "3 outcomes", "hints": "3 outcomes",
+             "dxf_export": "your computer"},
     "footer": "**Elektroplan Editor** · generic toolkit, synthetic sample, no real building data · symbols **UNVERIFIED** until an Elektroplaner confirms them.",
     "internals": {"label": "Detail tabs", "hidden": "Show the detail tabs (Files, Build)", "shown": "Hide the detail tabs (Files, Build)"},
     "fs": {"smaller": "Smaller text", "larger": "Larger text"},
@@ -69,7 +70,7 @@
       {"label": "Print colours", "sections": ["colours_print"]},
       {"label": "Drawing", "sections": ["drawing_screen", "drawing_print"]},
       {"label": "Line widths", "sections": ["screen_lines", "print_lines"]},
-      {"label": "Layout hint", "rules": "live"},
+      {"label": "Layout checks", "rules": "live"},
       {"label": "Placement rules", "rules": "export"},
       {"label": "Examples", "sections": ["examples"]}
     ]
@@ -123,7 +124,7 @@
       "**Faint rings** show where the rules suggest a symbol; let go near one and it **snaps** on.",
       "**Rings are suggestions only**: they are not placed and do **not print**.",
       "**Connect**: click a switch, then the lights it works; the page proposes the **switch type**.",
-      "**Layout hints** list lights without a switch, switches without a light, doors without a switch.",
+      "**Layout checks** under the drawing: lights, switches, sockets, kitchen, smoke alarms, symbols outside rooms.",
       "**Keep your work** as a layout file (Save or Copy layout); **Open layout** brings it back."]},
     "plan": {"label": "Open plan", "bullets": [
       "Opens a **plan file** (<name>.plan.json) written by **tools/export_plan.py** from your DXF.",
@@ -131,6 +132,7 @@
       "**Opened**: a valid plan file; its storeys replace the sample.",
       "**Refused as different**: another kind of file, e.g. a layout or parameter file.",
       "**Refused, could not tell**: not JSON, not a valid plan file, or a drawing that does not parse.",
+      "**Version 2** lists the **windows**; an older plan file opens with windows **unknown**.",
       "You can also **paste** the file's text anywhere on the page."]},
     "paste": {"label": "Paste a file", "bullets": [
       "**⌘V / Ctrl+V** anywhere on the page outside an input box.",
@@ -269,7 +271,7 @@
       "**Positions, rooms and links** stay.",
       "**One click**, one Undo step."]},
     "rules_select": {"label": "Placement rule set", "bullets": [
-      "**Which values** the suggestions and the door hint use.",
+      "**Which values** the suggestions and the layout checks use.",
       "**Starting values (to confirm)**: the default; ours, each with where its idea comes from.",
       "**Elektroplaner values**: empty until provided; every rule says **no value yet** and suggests nothing.",
       "**Saved** in the layout file."]},
@@ -287,14 +289,15 @@
       "**Sockets**: the middle of each wall piece between doors. **Ceiling lights**: the room centre.",
       "**Kitchen outlets**: along the walls of rooms whose label marks a kitchen.",
       "**Could not tell**: no walls without a room outline; no switch where the door swing is unknown.",
-      "**Windows are unknown** to the plan: a suggestion may fall in a window niche.",
+      "**Windows** from the plan: socket and kitchen rings keep clear by **window_margin_m**.",
+      "**Older plan file** (windows unknown): a ring may fall in a window niche.",
       "**No rule** for wall lights and the other symbols."]},
     "sug_all": {"label": "Suggestions (show all)", "bullets": [
       "Shows **every suggestion** of the chosen rule set, coloured by symbol category.",
       "**Untick** to hide; while placing, only that symbol's kind is shown.",
       "**Suggestions only**: they are not placed and do not print."]},
     "rules": {"label": "Placement rules and their values", "bullets": [
-      "Every rule the suggestions and hints use, with its **value in each rule set**.",
+      "Every rule the suggestions and checks use, with its **value in each rule set**.",
       "One home: **presets/el_parameters.json**.",
       "**To confirm**: a starting value, with where its idea comes from.",
       "**No value yet**: the Elektroplaner has not given one.",
@@ -305,10 +308,12 @@
       "**Print**: white paper, drawing dark and muted, symbols in print colours and mm widths.",
       "**Contrast**: every symbol colour has at least 3:1 against its background.",
       "All colours and widths in **presets/el_parameters.json**."]},
-    "hints": {"label": "Layout hints", "bullets": [
-      "A short list per storey, **updated with every change**.",
+    "hints": {"label": "Layout checks", "bullets": [
+      "A list per storey, **updated with every change**, with counts.",
       "Three outcomes: **ok**, **to look at**, **could not tell**.",
-      "**Hints for the plan**, not a check of the installation."]},
+      "**Our starting values**, not from a standard: confirm them with the Elektroplaner.",
+      "**Elektroplaner rule set**: no values yet, so most checks say **could not tell**.",
+      "**Checks of the plan**, not of the installation."]},
     "hint_h1": {"label": "H1 Lights with no switch", "bullets": [
       "Every **light no link reaches**.",
       "**Could not tell** when no light is placed."]},
@@ -318,6 +323,34 @@
     "hint_h3": {"label": "H3 Doors without a switch", "bullets": [
       "Every room with a light: **each door** needs a switch within **hint_switch_near_door_m** of its opening.",
       "**Could not tell**: no value in the rule set, a light's room unknown, no door, or no rooms."]},
+    "hint_h4": {"label": "H4 Rooms without a light", "bullets": [
+      "Rooms of the types in **check_light_room_types** need a light.",
+      "**Room type** from the label words; wet rooms from the plan.",
+      "**Could not tell**: a room whose type no label word gives."]},
+    "hint_h5": {"label": "H5 Too few sockets", "bullets": [
+      "Socket outlets per room at least **check_min_sockets_<type>**.",
+      "**A double socket** counts two.",
+      "**Our starting values**, not from a standard."]},
+    "hint_h6": {"label": "H6 Kitchen outlets", "bullets": [
+      "Every kitchen: a **cooker outlet** (checks.cooker_codes).",
+      "And at least **check_min_appliance_outlets_kitchen** appliance outlets."]},
+    "hint_h7": {"label": "H7 Smoke alarms", "bullets": [
+      "Rooms of the types in **check_smoke_room_types** need a smoke alarm.",
+      "**Our starting rule**: the Austrian rules on smoke alarms were **not checked**."]},
+    "hint_h8": {"label": "H8 Wet-room zones", "bullets": [
+      "Sockets near a **shower or bath** must keep out of its zones.",
+      "The plan knows **no zones**: always **could not tell**; ask the Elektroplaner."]},
+    "hint_h9": {"label": "H9 Symbols outside every room", "bullets": [
+      "A symbol whose **room could not be told**.",
+      "**Could not tell**: move it into a room, or check the plan's room outlines."]},
+    "dxf_export": {"label": "CAD for the Elektroplaner (DXF)", "bullets": [
+      "**On your computer**, not in the page: the browser has no DXF writer.",
+      "**python3 tools/export_layout_dxf.py --dxf your.dxf --layout <layout file> --out <new.dxf>**",
+      "**Checks first** that the layout belongs to that drawing and storey (checksum); else nothing is written.",
+      "**Keeps the whole drawing** and **adds layers**: one per symbol category, one for the links.",
+      "Each symbol a **block** with its code, name, room and **verified = false**.",
+      "**Re-reads** the written file: every symbol there, within **position_tol_mm** of its place.",
+      "Symbols stay **UNVERIFIED**: a note on the drawing says so."]},
     "params": {"label": "Parameters (one file)", "bullets": [
       "**Every tunable value** in one file: presets/el_parameters.json.",
       "Rules, snap radius, symbol size, room distance, colours, line widths, example symbols.",
@@ -429,7 +462,10 @@
       "no_storey": "This plan has no storey to show.",
       "ask_yes": "Yes",
       "ask_no": "Cancel",
-      "empty_storey": "No symbols yet: drag one from the palette onto the drawing."
+      "empty_storey": "No symbols yet: drag one from the palette onto the drawing.",
+      "windows_known": "Windows: {n} from the plan; socket and kitchen rings keep clear of them.",
+      "windows_unknown": "Windows unknown (older plan file): a ring may fall in a window niche. Export the plan again.",
+      "checks_counts": "{ok} ok · {look} to look at · {unk} could not tell"
     }
   },
   "howto": {
@@ -454,12 +490,13 @@
        "steps": ["**Switching groups** (under the drawing) lists the lights that share switches.",
                  "The page **proposes** the type: 1 Ausschaltung, 2 Wechselschaltung, 3+ Kreuzschaltung.",
                  "**Apply** swaps the placed switches to the proposal; nothing changes without it."]},
-      {"key": "snap", "label": "Snap & rules", "aliases": ["rules"], "details": ["suggestions", "snap", "sug_all", "rules_select", "hints", "hint_h1", "hint_h2", "hint_h3"],
+      {"key": "snap", "label": "Snap & rules", "aliases": ["rules"], "details": ["suggestions", "snap", "sug_all", "rules_select", "hints", "hint_h1", "hint_h2", "hint_h3",
+                                                                       "hint_h4", "hint_h5", "hint_h6", "hint_h7", "hint_h8", "hint_h9"],
        "steps": ["While you **pick, drag or move** a symbol, **rings** show the suggested spots.",
                  "The ring it will snap to turns **yellow**; let go near it.",
                  "Untick **Snap**, or hold **Alt/Option**, to place freely.",
                  "**Rules** picks the values: starting values (to confirm) or the Elektroplaner's.",
-                 "**Layout hints** list lights without a switch, switches without a light, doors without a switch."]},
+                 "**Layout checks** under the drawing say what is **ok**, **to look at** or **could not tell**."]},
       {"key": "example", "label": "Examples", "details": ["example", "example_clear"],
        "steps": ["With no layout of your own, the **simple example** opens, marked **EXAMPLE**.",
                  "Pick **complex** in **Example** for a whole storey; **Clear example** empties it.",
@@ -486,12 +523,20 @@
       {"key": "params", "label": "Parameters", "details": ["params", "params_copy", "params_save", "params_load", "params_reset"],
        "steps": ["Open **Parameters** at the top of the editor: one tab per group.",
                  "**Live** values change the page now; **Needs re-export** values after exporting the plan again.",
-                 "**Copy** (or Save) to keep them; **Load parameters…** checks a file; **Reset** goes back."]}
+                 "**Copy** (or Save) to keep them; **Load parameters…** checks a file; **Reset** goes back."]},
+      {"key": "cad", "label": "CAD (DXF)", "details": ["dxf_export"],
+       "steps": ["**Keep the layout** of a storey as a file (Save or Copy layout).",
+                 "On your computer: **python3 tools/export_layout_dxf.py --dxf your.dxf --layout <layout file> --out <new.dxf>**.",
+                 "Send the **new DXF** to the Elektroplaner: your drawing plus the Elektro layers."]}
     ]
   },
   "whatsnew": {
     "label": "What's new",
     "entries": [
+      {"date": "05.10.2026", "title": "Windows, layout checks, CAD export",
+       "items": ["**Windows** read from the drawing: socket and kitchen rings keep clear of them.",
+                 "**Layout checks** H1-H9 with counts: lights, sockets, kitchen, smoke alarms.",
+                 "**DXF export** (on your computer): the layout as Elektro layers for the Elektroplaner."]},
       {"date": "04.10.2026", "title": "Shorter documentation, readable parameters, honest print view",
        "items": ["**Documentation** in tabs, with short bullets and folded details.",
                  "**Parameters** in one readable table per group; **Live** or **Needs re-export** explained once.",
@@ -524,7 +569,7 @@
     "docs.internals": ["**Files** and **Build** are hidden by default.", "**Click** to show or hide them."],
     "electrical.page": ["**Drag symbols** onto the drawing.", "**Rings** are suggestions: they do not print.", "**Connect**: click a switch, then its lights.", "**Save or copy** the layout to keep it."],
     "electrical.howto": ["**Step by step**: place, connect, keep, print.", "Every button and mode explained."],
-    "electrical.whatsnew": ["**Documentation** in tabs, short bullets.", "**Parameters** in readable tables.", "**Print view** warns about unplaced symbols."],
+    "electrical.whatsnew": ["**Windows** from the drawing.", "**Layout checks** H1-H9.", "**DXF export** for the Elektroplaner."],
     "electrical.plan": ["**Opens a plan file** from tools/export_plan.py.", "**Read in this browser** only: nothing is uploaded.", "**Checked first**: opened, or refused with why."],
     "electrical.paste": ["**Paste** a plan, layout or parameter file's text.", "Opened with the **same checks** as a file."],
     "electrical.storeys": ["**One tab per storey**, each with its own symbols."],
@@ -559,10 +604,17 @@
     "electrical.sug_all": ["**Shows every suggestion** of the rule set.", "**Colour** = the symbol category it is for.", "**Not placed**: rings do not print."],
     "electrical.rules": ["**Every rule and its value** in both rule sets.", "**To confirm**: a starting value, not from a standard."],
     "electrical.colours": ["**Screen**: black stage, bright symbols, fixed-width lines.", "**Print**: white paper, dark drawing, print colours.", "**All colours** in el_parameters.json."],
-    "electrical.hints": ["**Quick checks** after every change.", "**ok**, **to look at**, or **could not tell**."],
+    "electrical.hints": ["**Checks** after every change, with counts.", "**ok**, **to look at**, or **could not tell**.", "**Our starting values**, not from a standard."],
     "electrical.hint_h1": ["**Lights no link reaches**."],
     "electrical.hint_h2": ["**Switches without a link**."],
     "electrical.hint_h3": ["**Doors of lit rooms** without a switch nearby.", "**Distance**: hint_switch_near_door_m of the rule set."],
+    "electrical.hint_h4": ["**Rooms that need a light** and have none."],
+    "electrical.hint_h5": ["**Rooms with fewer sockets** than our starting minimum."],
+    "electrical.hint_h6": ["**Kitchens** without a cooker outlet or with too few appliance outlets."],
+    "electrical.hint_h7": ["**Bedrooms and halls** without a smoke alarm.", "Austrian rules **not checked**."],
+    "electrical.hint_h8": ["**Always could not tell**: the plan knows no zones."],
+    "electrical.hint_h9": ["**Symbols** outside every room."],
+    "electrical.dxf_export": ["**On your computer**: tools/export_layout_dxf.py.", "**Adds Elektro layers** to your drawing for the Elektroplaner."],
     "electrical.params": ["**Every tunable value** in one file.", "**Live**: changes the page now.", "**Needs re-export**: after exporting the plan again.", "**Copy**, save or load the file."],
     "electrical.params_save": ["**Downloads** el_parameters.json.", "**Export the plan again** with it for the suggestions."],
     "electrical.params_copy": ["**Copies the parameters' text** to the clipboard."],

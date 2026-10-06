@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "properties": {
     "schema": {"const": "vpt_plan", "description": "Always vpt_plan: says what kind of file this is."},
-    "schema_version": {"enum": [1], "description": "Version of this format."},
+    "schema_version": {"enum": [1, 2], "description": "Version of this format: 2 adds the windows of every storey (required in version 2, absent in version 1: an older file still opens, its windows are then unknown)."},
     "drawing": {
       "type": "object",
       "description": "The drawing the plan was exported from. Only its file name and checksum: no folder, no content beyond what the editor draws.",
@@ -64,7 +64,8 @@
         "rooms": {"type": "array", "items": {"$ref": "#/$defs/room"}},
         "doors": {"type": "array", "items": {"$ref": "#/$defs/door"}},
         "walls": {"type": "array", "items": {"$ref": "#/$defs/wall"}},
-        "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}, "description": "R1-R5 for this storey."},
+        "windows": {"type": "array", "items": {"$ref": "#/$defs/window"}, "description": "The window openings (version 2): socket and kitchen suggestions keep clear of them."},
+        "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}, "description": "R1-R6 for this storey (R1-R5 in version 1)."},
         "suggest": {"type": "object", "description": "Placement suggestions per rule set (vpt/el_rules.py), in model coordinates.", "additionalProperties": {"type": "object"}},
         "examples": {"type": ["object", "null"], "description": "The generated example layouts (simple, complex) when this storey is the example storey, else null."}
       }
@@ -124,6 +125,20 @@
         "p": {"$ref": "#/$defs/point"},
         "q": {"$ref": "#/$defs/point"},
         "rooms": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "window": {
+      "type": "object",
+      "required": ["id", "p", "q", "width_m", "rooms"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "description": "<storey>-F<n>."},
+        "p": {"$ref": "#/$defs/point", "description": "One end of the opening, in the middle of the wall (model coordinates)."},
+        "q": {"$ref": "#/$defs/point", "description": "The other end."},
+        "width_m": {"type": "number", "exclusiveMinimum": 0, "description": "Width of the opening in metres."},
+        "depth_m": {"type": "number", "minimum": 0, "description": "Depth of the window's lines across the wall in metres."},
+        "wall_ids": {"type": "array", "items": {"type": "string"}, "description": "The wall pieces that end at the opening."},
+        "rooms": {"type": "array", "items": {"type": "string"}, "description": "The rooms on its two sides (one: an outer wall; none: could not tell)."}
       }
     },
     "check": {

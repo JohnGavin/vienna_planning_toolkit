@@ -1,4 +1,5 @@
-# Pipeline: preset + generator -> synthetic flat DXF -> validation result.
+# Pipeline: preset + generator -> synthetic flat DXF -> validation result -> plan file -> editor pages, the complex
+# example as an Elektro DXF; and the DXF tools on the sample: completeness check, electrical base, fitting recognition.
 # Run inside the project shell:
 #   nix-shell default.nix --run "Rscript -e 'targets::tar_make()'"
 library(targets)
@@ -50,6 +51,63 @@ list(
       res
     }
   ),
+  # the DXF tools on the sample (outputs under _scratch/, git-ignored; exit 0 PASS, anything else stops the pipeline)
+  tar_target(
+    dxf_tool_sources,
+    c(
+      list.files("vpt", pattern = "[.]py$", full.names = TRUE),
+      file.path("presets", c(
+        "dwg_convert.json", "layer_strip.json", "fittings.json",
+        "plan_extract.json"
+      )),
+      "nix/libredwg.nix",
+      file.path("tools", c("dwg_convert.py", "strip_layers.py", "recognise_fittings.py"))
+    ),
+    format = "file"
+  ),
+  tar_target(
+    dwg_check,
+    {
+      dxf_tool_sources
+      res <- run_python(c(
+        "tools/dwg_convert.py", flat_dxf, "--outdir", "_scratch/dwg_convert"
+      ))
+      if (res$status != 0L) {
+        cli::cli_abort(c("completeness check did not pass (exit {res$status})", res$output))
+      }
+      "_scratch/dwg_convert/synthetic_flat.convert.json"
+    },
+    format = "file"
+  ),
+  tar_target(
+    electrical_base,
+    {
+      dxf_tool_sources
+      res <- run_python(c(
+        "tools/strip_layers.py", flat_dxf, "--outdir", "_scratch/strip"
+      ))
+      if (res$status != 0L) {
+        cli::cli_abort(c("electrical base did not pass (exit {res$status})", res$output))
+      }
+      "_scratch/strip/synthetic_flat__2OG__electrical_base.dxf"
+    },
+    format = "file"
+  ),
+  tar_target(
+    fittings_result,
+    {
+      dxf_tool_sources
+      res <- run_python(c(
+        "tools/recognise_fittings.py", flat_dxf,
+        "--output", "_scratch/synthetic_flat.fittings.json"
+      ))
+      if (res$status != 0L) {
+        cli::cli_abort(c("fitting recognition did not pass (exit {res$status})", res$output))
+      }
+      "_scratch/synthetic_flat.fittings.json"
+    },
+    format = "file"
+  ),
   # the electrical editor: plan file of the sample, then the two pages built from it
   tar_target(
     editor_sources,
@@ -80,6 +138,29 @@ list(
         cli::cli_abort(c("plan export did not pass (exit {res$status})", res$output))
       }
       "samples/synthetic_flat.plan.json"
+    },
+    format = "file"
+  ),
+  # the complex example written into a copy of the sample DXF as Elektro layers (what the Elektroplaner gets)
+  tar_target(
+    elektro_sources,
+    c("vpt/dxf_export.py", "presets/dxf_export.json", "tools/export_layout_dxf.py"),
+    format = "file"
+  ),
+  tar_target(
+    flat_elektro_dxf,
+    {
+      elektro_sources
+      editor_sources
+      res <- run_python(c(
+        "tools/export_layout_dxf.py", "--dxf", flat_dxf, "--plan", flat_plan,
+        "--example", "complex", "--out", "samples/synthetic_flat_elektro.dxf"
+      ))
+      # 0 written and verified; 1 refused or not verified, 3 could not tell: stop the pipeline
+      if (res$status != 0L) {
+        cli::cli_abort(c("Elektro DXF export did not pass (exit {res$status})", res$output))
+      }
+      "samples/synthetic_flat_elektro.dxf"
     },
     format = "file"
   ),
