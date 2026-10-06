@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import pathlib
 import re
 import shlex
@@ -77,6 +78,33 @@ def find_oda(preset: dict) -> str | None:
         if cand and pathlib.Path(cand).is_file():
             return cand
     return None
+
+
+def oda_command(exe: str, args: list[str], preset: dict) -> tuple[list[str], dict | None, bool]:
+    """(argv, env, exit code observable) for one ODA File Converter launch: the ONE place ODA is started (tool and tests).
+    The preset's `oda_launch` decides whether its Qt window can appear on the screen:
+        offscreen   QT_QPA_PLATFORM=offscreen: no window (needs the offscreen Qt plugin in the app bundle; the macOS app has none)
+        background  macOS `open -W -g -j -n`: launched hidden, not brought to front, waited for. `open` gives no exit code of the
+                    converter: success is judged from the output files by the callers (None exit code = not observable)
+        direct      the plain binary (the window may appear)"""
+    mode = preset.get("oda_launch", "background")
+    if mode not in ("offscreen", "background", "direct"):
+        raise UsageError(f"oda_launch must be offscreen, background or direct, not {mode!r}")
+    if mode == "offscreen":
+        return [exe, *args], {**os.environ, "QT_QPA_PLATFORM": "offscreen"}, True
+    if mode == "background":
+        app = pathlib.Path(exe)
+        bundle = next((str(a) for a in app.parents if a.suffix == ".app"), None)
+        if bundle and shutil.which("open"):
+            return ["open", "-W", "-g", "-j", "-n", "-a", bundle, "--args", *args], None, False
+        mode = "direct"    # no app bundle / no `open` (Linux): the plain binary
+    return [exe, *args], None, True
+
+
+def run_oda(exe: str, args: list[str], preset: dict, timeout: float) -> tuple[subprocess.CompletedProcess, bool]:
+    """Run one ODA launch through oda_command. (process, exit code observable); subprocess.TimeoutExpired propagates."""
+    argv, env, observable = oda_command(exe, args, preset)
+    return subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=env), observable
 
 
 def choose_route(preset: dict) -> tuple[str, str | None]:
@@ -164,7 +192,7 @@ def run_converter(src: pathlib.Path, dxf: pathlib.Path, preset: dict, route: str
             shutil.copy2(src, tin / src.name)
             argv = [exe, str(tin), str(tout), preset.get("oda_output_version", "ACAD2018"), "DXF", "0", "1", src.name]
             try:
-                p = subprocess.run(argv, capture_output=True, text=True, timeout=preset["timeout_s"])
+                p, observable = run_oda(exe, argv[1:], preset, preset["timeout_s"])
             except subprocess.TimeoutExpired:
                 return info, argv, None, [], f"ODAFileConverter did not finish within {preset['timeout_s']} s"
             made = tout / (src.stem + ".dxf")
@@ -172,7 +200,7 @@ def run_converter(src: pathlib.Path, dxf: pathlib.Path, preset: dict, route: str
                 shutil.move(str(made), str(dxf))
             lines = [ln for ln in (p.stderr + "\n" + p.stdout).splitlines() if ln.strip()]
             lines += [ln for f in sorted(tout.glob("*.err")) for ln in f.read_text(errors="replace").splitlines() if ln.strip()]
-            return info, argv, p.returncode, lines, None
+            return info, argv, (p.returncode if observable else None), lines, None
     argv, info = tool_argv(preset["converter"], [*preset["converter_args"], "-o", str(dxf), str(src)], preset, route)
     if argv is None:
         return info, None, None, [], f"{preset['converter']} cannot run: {info['problem']}"
@@ -362,7 +390,7 @@ def run(src: pathlib.Path, outdir: pathlib.Path, preset: dict | None = None) -> 
                    converter_message_kinds=dict(Counter(ln.split(":", 1)[0] if ":" in ln[:20] else "other" for ln in lines)),
                    converter_messages=lines[:int(preset.get("max_messages_kept", 200))], unsupported_messages_total=sl["unsupported_total"],
                    unsupported_messages=sl["unsupported"], allowed_messages=sl["allowed"])
-        if code_exit != 0:
+        if code_exit is not None and code_exit != 0:
             unknowns.append(f"the converter exited {code_exit}")
         if sl["unsupported_total"]:
             unknowns.append(f"converter reported {sl['unsupported_total']} line(s) about errors or unsupported objects "

@@ -7,6 +7,8 @@
   "converter_route": "auto",
   "converter_route_note": "auto = the ODA File Converter when it is installed (oda_candidates, or ODAFileConverter on PATH), else LibreDWG from converter_nix_shell. oda / nix / path force one route. A route that cannot run is could-not-tell: there is no switch to another route after a failure.",
   "oda_candidates": ["/Applications/ODAFileConverter.app/Contents/MacOS/ODAFileConverter", "/usr/bin/ODAFileConverter"],
+  "oda_launch": "background",
+  "oda_launch_note": "How the ODA File Converter (a Qt GUI app) is started: offscreen = QT_QPA_PLATFORM=offscreen (no window; needs the offscreen Qt plugin, which the macOS app does not bundle), background = macOS 'open -W -g -j -n' (hidden, not brought to front; no converter exit code, success is judged from the written files), direct = the plain binary (a window can appear).",
   "oda_output_version": "ACAD2018",
   "converter_nix_shell": "nix/libredwg.nix",
   "converter_nix_rev": "release",
