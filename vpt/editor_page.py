@@ -11,7 +11,7 @@ file kinds, in-page confirmation instead of the browser's dialogs, the synthetic
 example shown, theme-aware page colours (the drawing stage stays black), a layout that works at phone width.
 
 The storey stages are built by the page script from the plan file (so Open plan can replace them); this module builds the
-static parts: the bar, palette and panels as a <template>, the Parameters panel, the Documentation tab, and the JSON blocks
+static parts: the bar, palette and panels as a <template>, the Parameters tab, the Documentation tab, and the JSON blocks
 the script reads (symbol library, schemas, rules with popup texts, parameters, page settings and messages, the plan).
 Every symbol shown comes from the library (validated: the build fails on a broken library); every text from
 presets/editor_docs.json.
@@ -184,10 +184,10 @@ def params_panel(d: dx.Docs, v: dict) -> str:
         bar += b("save-in-place", "Save to file…", "params_save")
     bar += b("load", "Load parameters…", "params_load") + b("reset", "Reset to the page's file", "params_reset")
     note = dx.callout(dx.bullets(pp["callout_" + ("pages" if v["download"] else "artifact")]))
-    return (f'<details class="el-params"><summary class="tip" data-tip="{dx.esc(etip(d, "params"))}">Parameters</summary>'
+    return (f'<div class="el-params"><h2 class="el-params-h"><span class="tip" data-tip="{dx.esc(etip(d, "params"))}">Parameters</span></h2>'
             '<p class="el-params-status el-status" role="status" aria-live="polite"></p>'
             f'<div class="el-params-bar">{bar}</div>{note}'
-            '<div class="el-params-body"></div><input type="file" class="el-params-file" accept=".json,application/json" hidden aria-label="Load a parameter file"></details>')
+            '<div class="el-params-body"></div><input type="file" class="el-params-file" accept=".json,application/json" hidden aria-label="Load a parameter file"></div>')
 
 
 # ---- the Documentation tab ----------------------------------------------------------------------------------------------------
@@ -455,6 +455,7 @@ def build(plan: dict, variant: str) -> str:
     fs = t["docs"]["fs"]
     tabs = ('<div class="vpt-navrow"><div class="vpt-tabs" role="tablist" aria-label="Page">'
             '<button type="button" role="tab" id="vpt-tab-editor" aria-controls="vpt-pane-editor" aria-selected="true">Editor</button>'
+            '<button type="button" role="tab" id="vpt-tab-params" aria-controls="vpt-pane-params" aria-selected="false" tabindex="-1">Parameters</button>'
             '<button type="button" role="tab" id="vpt-tab-docs" aria-controls="vpt-pane-docs" aria-selected="false" tabindex="-1">Documentation</button></div>'
             f'<span class="fs-toggle" role="group" aria-label="Text size"><button type="button" class="fs-btn" id="vpt-fs-dec" title="{dx.esc(fs["smaller"])}" '
             f'aria-label="{dx.esc(fs["smaller"])}">A−</button><button type="button" class="fs-btn" id="vpt-fs-inc" title="{dx.esc(fs["larger"])}" '
@@ -468,9 +469,10 @@ def build(plan: dict, variant: str) -> str:
                '<input type="file" class="vpt-plan-file" accept=".json,application/json" hidden aria-label="Open a plan file">'
                '<p class="vpt-status el-status" role="status" aria-live="polite"></p></div>')
     editor = (f'<section class="vpt-pane" role="tabpanel" id="vpt-pane-editor" aria-labelledby="vpt-tab-editor">{intro}{filebar}'
-              + params_panel(d, v)
               + f'<div class="el-storey-tabs" role="tablist" aria-label="Storeys"></div><div class="el-storeys"></div>'
               + page_template(lib, d, rules, v) + '</section>')
+    params_pane = (f'<section class="vpt-pane" role="tabpanel" id="vpt-pane-params" aria-labelledby="vpt-tab-params" hidden>'
+                   + params_panel(d, v) + '</section>')
     docs_pane = (f'<section class="vpt-pane" role="tabpanel" id="vpt-pane-docs" aria-labelledby="vpt-tab-docs" hidden>'
                  + doc_tab(lib, rules, params, cfg, d, v, plan) + '</section>')
     overlays = ('<div class="vpt-ask" role="alertdialog" aria-modal="false" aria-labelledby="vpt-ask-msg" hidden><p id="vpt-ask-msg"></p>'
@@ -488,7 +490,7 @@ def build(plan: dict, variant: str) -> str:
             f'<script type="application/json" id="el-params-schema">{_json(params_schema)}</script>'
             f'<script type="application/json" id="el-params-meta">{_json(params_meta(params))}</script>')
     css = _asset("editor.css") + "\n" + d.print_css()
-    body = (f'<div class="vpt" id="vpt" data-variant="{variant}">{head}{tabs}{editor}{docs_pane}</div>{overlays}{data}'
+    body = (f'<div class="vpt" id="vpt" data-variant="{variant}">{head}{tabs}{editor}{params_pane}{docs_pane}</div>{overlays}{data}'
             f'<script>\n{_asset("core.js", variant)}\n</script>\n<script>\n{_asset("editor.js", variant)}\n</script>\n')
     title = f"<title>{dx.esc(t['title'])}</title>"
     if variant == "artifact":
