@@ -410,7 +410,8 @@
   }
   var PP = document.querySelector('.el-params'), PSTAT = PP && PP.querySelector('.el-params-status');
   function pstatus(msg, kind) { if (!PSTAT) return; PSTAT.textContent = msg; PSTAT.className = 'el-params-status el-status' + (kind ? ' el-' + kind : ''); }
-  function setEdited(on) { PEDITED = on; PSHA = on ? sha256(dumpParams()) : (PMETA.sha256 || ''); if (PP) PP.setAttribute('data-edited', on ? '1' : '0');
+  function markEdited(on) { var v = on ? '1' : '0'; if (PP) PP.setAttribute('data-edited', v); var tb = document.getElementById('vpt-tab-params'); if (tb) tb.setAttribute('data-edited', v); }
+  function setEdited(on) { PEDITED = on; PSHA = on ? sha256(dumpParams()) : (PMETA.sha256 || ''); markEdited(on);
     store(PKEY, on ? dumpParams() : null); pages.forEach(function (pg) { if (pg.elChanged) pg.elChanged(); }); }
   function fmtVal(v) { return v === null ? '' : Array.isArray(v) ? v.join(', ') : String(v); }
   function parseVal(text, old, nullable) {
@@ -465,7 +466,7 @@
         '<thead><tr>' + PPC.columns.map(function (c) { return '<th scope="col">' + escH(c) + '</th>'; }).join('') + '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div></div>';
     });
     body.innerHTML = '<div class="tabset el-ptabs"><div class="tabset-nav" role="tablist" aria-label="Parameter groups">' + nav + '</div>' + panels + '</div>';
-    PP.setAttribute('data-edited', PEDITED ? '1' : '0'); if (window.vptTabsets) window.vptTabsets(body); if (window.vptTipify) window.vptTipify(body);
+    markEdited(PEDITED); if (window.vptTabsets) window.vptTabsets(body); if (window.vptTipify) window.vptTipify(body);
   }
   function setPath(o, path, v) { var ks = path.split('.'), x = o; for (var i = 0; i < ks.length - 1; i++) x = x[ks[i]]; x[ks[ks.length - 1]] = v; }
   function getPath(o, path) { return path.split('.').reduce(function (x, k) { return x == null ? x : x[k]; }, o); }
@@ -1149,7 +1150,7 @@
     var kind = o && typeof o === 'object' ? (o.schema || o.name) : null;
     if (kind === 'vpt_plan') { openPlanText(text, 'pasted text'); return; }
     if (kind === 'el_layout') { var pg = activePage(); if (pg) window.elPages[pg.getAttribute('data-storey')].open(text, 'pasted text'); gstatus('', ''); return; }
-    if (kind === 'el_parameters' && window.elParams) { if (PP) PP.open = true; window.elParams.load(text, 'pasted text'); return; }
+    if (kind === 'el_parameters' && window.elParams) { if (window.vptShowTab) window.vptShowTab('vpt-pane-params'); window.elParams.load(text, 'pasted text'); return; }
     gstatus(fmt(M.paste_unknown, { msg: kind ? 'a file of kind ' + kind : 'not a plan, layout or parameter file' }), 'err');
   });
   document.addEventListener('keydown', function (e) {

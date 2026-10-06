@@ -10,7 +10,7 @@ artifact host would wrap it):
   C5  Copy layout gives JSON that is valid against schema/el_layout.schema.json and opens on this drawing and storey
   C6  Open plan (a real file through the file input) refuses a malformed file (could-not-tell) and a layout file (different),
       and opens the valid sample plan (match)
-  C7  at 400 px width (light and dark): no horizontal page scroll, Editor and Documentation tabs
+  C7  at 400 px width (light and dark): no horizontal page scroll, Editor, Parameters and Documentation tabs
   C8  text contrast >= 4.5:1 for every visible text element, in light and in dark page themes
   C9  the variant's buttons: Pages has Save / Save to file / Print view, the artifact has none of them (Copy instead)
   C10 no console error or uncaught exception
@@ -26,6 +26,9 @@ artifact host would wrap it):
       cooker outlet (falsified: removing it must turn H6 of the complex example from ok to 'to look at' in both); the panel
       shows nine checks, their counts and the plan's windows
   C15 a socket rotated by 180 degrees: its drawing is turned, its letters ("2") are not (net rotation 0 against the page)
+  C16 Parameters is a page tab: the tab row reads Editor | Parameters | Documentation and stays in view on the Parameters page;
+      Parameters then Editor (real clicks) shows the same storey with ink, the same viewBox, layers and symbols; a Live colour changed
+      on Parameters is drawn on the Editor. Falsified every run: a build that resets the view when you return must fail the same measure.
 
 Usage: check_editor.py [pages|artifact ...] [--browser chrome|edge] [--scheme light|dark] [--size 1440x900]
 The page opens in the given colour scheme (default light) at the given window size; C7/C8 cover both schemes either way.
@@ -269,6 +272,54 @@ def checks_mirror(b, P: str, plan: dict, lib: dict) -> tuple:
                                    f" panel {panel['n']} checks {panel['counts']}, windows {panel['windows']}")
 
 
+LIGHT_TEST = "#ff00ff"      # a colour no other element of the screen theme has: set on Parameters, looked for on the Editor
+TAB_STATE_JS = """(function () { var p = document.querySelector('.el-page[data-storey="%s"]'), t = document.querySelector('.el-storey-tabs [aria-selected="true"]');
+  return { storey: t ? t.textContent : null, vb: p.querySelector('svg.el-svg').getAttribute('viewBox'), hidden: p.hidden,
+    layers: Array.prototype.map.call(p.querySelectorAll('input[data-toggle-layer]'), function (i) { return i.checked ? 1 : 0; }).join(''),
+    symbols: window.elPages['%s'].layout().symbols.length }; })()""" % (STOREY, STOREY)
+
+
+def tabs_check(b, url: str, size: tuple, bug: bool = False) -> tuple:
+    """Real clicks on the page tabs. bug=True reinstalls the reported fault (the Editor resets its view when you come back to it)."""
+    b.open(url, settle=1.5)
+    texts = lambda: b.js("Array.prototype.map.call(document.querySelectorAll('.vpt-tabs [role=\"tab\"]'), function (t) { return t.textContent.replace(/ \\(edited\\)$/, ''); })")
+    row = "(function () { var r = document.querySelector('.vpt-tabs').getBoundingClientRect(); return [Math.round(r.top), r.top >= 0 && r.bottom <= innerHeight]; })()"
+    tabs = texts()
+    b.js(f"(function () {{ var p = document.querySelector('.el-page[data-storey=\"{STOREY}\"]'); p.querySelector('[data-act=\"reset\"]').click(); p.querySelector('[data-act=\"in\"]').click(); }})()")
+    if bug:
+        b.js(f"(function () {{ var old = window.vptOnTab; window.vptOnTab = function (id) {{ if (id === 'vpt-pane-editor') document.querySelector('.el-page[data-storey=\"{STOREY}\"] [data-act=\"reset\"]').click(); if (old) old(id); }}; }})()")
+    before = b.js(TAB_STATE_JS)
+    lit0 = count_near(b, b.screenshot(stage_rect(b)), hex_rgb(LIGHT_TEST), 60)
+    xy = centre(b, "#vpt-tab-params"); b.click(*xy); pause(b, 200)
+    on_params = b.js("(function () { var q = document.getElementById('vpt-pane-params'), e = document.getElementById('vpt-pane-editor');"
+                     " return { params_shown: !q.hidden, editor_hidden: e.hidden, tables: q.querySelectorAll('.el-ptable').length, in_pane: !!q.querySelector('.el-params-body'),"
+                     " old_panel_in_editor: !!e.querySelector('.el-params'), editor_tab_visible: document.getElementById('vpt-tab-editor').getClientRects().length > 0 }; })()")
+    row_params = b.js(row)
+    b.js(f"(function () {{ var i = document.querySelector('#vpt-pane-params tr[data-path=\"sections.colours_screen.values.licht.value\"] input[type=color]'); i.value = '{LIGHT_TEST}';"
+         " i.dispatchEvent(new Event('input', {bubbles: true})); i.dispatchEvent(new Event('change', {bubbles: true})); })()")
+    xy = centre(b, "#vpt-tab-editor"); b.click(*xy); pause(b, 300)
+    after = b.js(TAB_STATE_JS)
+    ink = b.pixels(b.screenshot(stage_rect(b)), (0, 0, 0))
+    lit1 = count_near(b, b.screenshot(stage_rect(b)), hex_rgb(LIGHT_TEST), 60)
+    b.js("window.vptShowTab('vpt-pane-params'); document.querySelector('[data-pact=\"reset\"]').click(); window.vptShowTab('vpt-pane-editor')")   # leave no edited parameters behind
+    problems = []
+    if tabs != ["Editor", "Parameters", "Documentation"]:
+        problems.append(f"tab row {tabs}")
+    if not (on_params["params_shown"] and on_params["editor_hidden"] and on_params["tables"] >= 3 and on_params["in_pane"] and not on_params["old_panel_in_editor"] and on_params["editor_tab_visible"]):
+        problems.append(f"Parameters page {on_params}")
+    if not row_params[1]:
+        problems.append(f"tab row not in view on Parameters (top {row_params[0]})")
+    if after != before or after["hidden"]:
+        problems.append(f"Editor changed: before {before}, after {after}")
+    if ink <= 3000:
+        problems.append(f"only {ink} drawn pixels on return")
+    if not (lit0 == 0 and lit1 > 0):
+        problems.append(f"Live colour: {lit0} test-colour pixels before, {lit1} after (want 0, then some)")
+    return not problems, ("; ".join(problems) if problems else
+                          f"tabs {tabs}; on Parameters the tab row stays in view (top {row_params[0]} px), {on_params['tables']} tables; back on Editor: storey {after['storey']!r}, "
+                          f"viewBox {after['vb']} (was {before['vb']}), {after['symbols']} symbols, {ink} drawn pixels; Live colour {LIGHT_TEST}: {lit0} pixels before, {lit1} after")
+
+
 def run(variant: str, browser: str = "chrome", scheme: str = "light", size: tuple = (1400, 1000)) -> dict:
     res: dict = {"variant": variant, "browser": browser, "scheme": scheme, "size": list(size), "checks": {}, "status": "PASS"}
     url = page_url(variant)
@@ -457,9 +508,10 @@ def run(variant: str, browser: str = "chrome", scheme: str = "light", size: tupl
         for scheme in ("light", "dark"):
             b.colour_scheme(scheme)
             b.call("Runtime.evaluate", {"expression": "new Promise(function (ok) { setTimeout(ok, 200); })", "awaitPromise": True})
-            b.js("document.querySelector('.el-params').open = true")      # the Parameters tables and pills are checked too
             con[scheme] = b.js(CONTRAST_JS)
-            b.js("document.querySelector('.el-params').open = false; window.vptShowTab('vpt-pane-docs')")
+            b.js("window.vptShowTab('vpt-pane-params')")                    # the Parameters tables and pills are checked too
+            con[scheme + "_params"] = b.js(CONTRAST_JS)
+            b.js("window.vptShowTab('vpt-pane-docs')")
             con[scheme + "_docs"] = b.js(CONTRAST_JS)
             b.js("window.vptShowTab('vpt-pane-editor')")
         put("C8", all(v["n_low"] == 0 and v["checked"] > 20 for v in con.values()),
@@ -472,12 +524,20 @@ def run(variant: str, browser: str = "chrome", scheme: str = "light", size: tupl
             w = b.js("[document.documentElement.scrollWidth, document.documentElement.clientWidth, document.body.scrollWidth]")
             b.js("window.vptShowTab('vpt-pane-docs')")
             wd = b.js("[document.documentElement.scrollWidth, document.documentElement.clientWidth]")
+            b.js("window.vptShowTab('vpt-pane-params')")
+            wp = b.js("[document.documentElement.scrollWidth, document.documentElement.clientWidth]")
             b.js("window.vptShowTab('vpt-pane-editor')")
             pr = b.js("(function () { var s = document.querySelector('svg.el-svg').getBoundingClientRect(); return [s.left, s.right]; })()")
-            phone[scheme] = {"editor": w, "docs": wd, "stage": pr}
-        ok7 = all(v["editor"][0] <= v["editor"][1] and v["docs"][0] <= v["docs"][1] and v["stage"][0] >= 15 and v["stage"][1] <= 385 for v in phone.values())
-        put("C7", ok7, "; ".join(f"{k}: editor scroll {v['editor'][0]} / client {v['editor'][1]}, docs {v['docs'][0]} / {v['docs'][1]}, stage x {v['stage'][0]:.0f}-{v['stage'][1]:.0f}"
+            phone[scheme] = {"editor": w, "docs": wd, "params": wp, "stage": pr}
+        ok7 = all(v["editor"][0] <= v["editor"][1] and v["docs"][0] <= v["docs"][1] and v["params"][0] <= v["params"][1] and v["stage"][0] >= 15 and v["stage"][1] <= 385 for v in phone.values())
+        put("C7", ok7, "; ".join(f"{k}: editor scroll {v['editor'][0]} / client {v['editor'][1]}, docs {v['docs'][0]} / {v['docs'][1]}, params {v['params'][0]} / {v['params'][1]}, stage x {v['stage'][0]:.0f}-{v['stage'][1]:.0f}"
                                  for k, v in phone.items()))
+        # ---- C16 Parameters is a page tab; leaving and returning keeps the Editor exactly as it was
+        b.viewport(*size)
+        b.colour_scheme(scheme)
+        ok16, d16 = tabs_check(b, url, size)
+        bad16, dbad16 = tabs_check(b, url, size, bug=True)
+        put("C16", ok16 and not bad16, f"{d16} | falsified (a build that resets the view on return): {'NOT caught' if bad16 else 'caught'}: {dbad16}")
         errors = errors_main + [e for e in b.errors if "falsify" not in e]
         put("C10", not errors, f"{len(errors)} console error(s)/exception(s): {errors[:3]}")
     if any(c["status"] == "FAIL" for c in res["checks"].values()):

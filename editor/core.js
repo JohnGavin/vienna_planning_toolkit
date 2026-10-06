@@ -8,7 +8,7 @@
   function escH(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function store(k, v) { try { if (v === undefined) return window.localStorage.getItem(k); window.localStorage.setItem(k, v); } catch (err) { return null; } return null; }
 
-  // ---- page tabs (Editor / Documentation) ----
+  // ---- page tabs (Editor / Parameters / Documentation) ----
   var tabs = Array.prototype.slice.call(document.querySelectorAll('.vpt-tabs [role="tab"]'));
   function showTab(id) {
     tabs.forEach(function (t) { var on = t.getAttribute('aria-controls') === id; t.setAttribute('aria-selected', on ? 'true' : 'false'); t.tabIndex = on ? 0 : -1;
@@ -143,7 +143,12 @@
   document.addEventListener('click', function (e) {
     var a = e.target.closest ? e.target.closest('a[href^="#doc-"]') : null; if (!a) return;
     if (showDoc(a.getAttribute('href').slice(1))) { e.preventDefault(); close(); } });
+  // a bare token in the address opens a page tab: #editor, #params, #docs
+  var HASH_TABS = { editor: 'vpt-pane-editor', params: 'vpt-pane-params', docs: 'vpt-pane-docs' };
+  function hashTab() { var k = location.hash.slice(1); if (HASH_TABS[k]) { showTab(HASH_TABS[k]); window.scrollTo(0, 0); } }
+  window.addEventListener('hashchange', hashTab);
   if (location.hash.indexOf('#doc-') === 0) setTimeout(function () { showDoc(location.hash.slice(1)); }, 50);
+  else hashTab();
 
   // ---- the drawing viewer: one per storey stage (div.el-view) ----
   function printSheet() {

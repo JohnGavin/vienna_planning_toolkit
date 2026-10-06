@@ -97,3 +97,17 @@ def test_pages_only_regions_are_balanced_and_stripped():
         text = (ROOT / "editor" / name).read_text(encoding="utf-8")
         assert text.count("@pages-only-start") == text.count("@pages-only-end") > 0
         assert "@pages-only" not in editor_page._asset(name, "artifact")
+
+
+@pytest.mark.parametrize("variant", ["pages", "artifact"])
+def test_parameters_is_a_page_tab(built, variant):
+    """Parameters sits in the page tab row between Editor and Documentation, not inside the Editor pane (it used to push the storey
+    out of view). Planted defect: the panel put back into the Editor pane must fail the same measure."""
+    def structure(page):
+        tabs = re.findall(r'role="tab" id="vpt-tab-(\w+)"', page)
+        pane = lambda n: re.search(rf'<section[^>]*id="vpt-pane-{n}".*?</section>', page, re.S).group(0)
+        return tabs, 'class="el-params"' in pane("params"), 'class="el-params"' in pane("editor")
+    tabs, in_params, in_editor = structure(built[variant])
+    assert tabs == ["editor", "params", "docs"] and in_params and not in_editor
+    broken = built[variant].replace('<div class="el-storey-tabs"', '<div class="el-params"></div><div class="el-storey-tabs"', 1)
+    assert structure(broken)[2], "the planted defect is not seen"
