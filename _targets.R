@@ -55,7 +55,7 @@ list(
   tar_target(
     dxf_tool_sources,
     c(
-      list.files("vpt", pattern = "[.]py$", full.names = TRUE),
+      list.files("vpt", pattern = "[.]py$", full.names = TRUE, recursive = TRUE),
       file.path("presets", c(
         "dwg_convert.json", "layer_strip.json", "fittings.json",
         "plan_extract.json"
@@ -112,7 +112,7 @@ list(
   tar_target(
     editor_sources,
     c(
-      list.files("vpt", pattern = "[.]py$", full.names = TRUE),
+      list.files("vpt", pattern = "[.]py$", full.names = TRUE, recursive = TRUE),
       list.files("editor", full.names = TRUE),
       list.files("schema", pattern = "[.]json$", full.names = TRUE),
       file.path("presets", c(

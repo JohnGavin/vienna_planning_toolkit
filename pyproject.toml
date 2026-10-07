@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vpt"
+dynamic = ["version"]
+description = "vienna_planning_toolkit: generic DXF tools and an electrical installation-plan editor for Vienna-style building plans"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = ["ezdxf", "shapely", "numpy", "pillow"]
+
+[project.urls]
+Homepage = "https://github.com/JohnGavin/vienna_planning_toolkit"
+
+[project.scripts]
+vpt-export-plan = "vpt.cli.export_plan:main"
+vpt-export-layout-dxf = "vpt.cli.export_layout_dxf:main"
+vpt-dwg-convert = "vpt.cli.dwg_convert:main"
+vpt-strip-layers = "vpt.cli.strip_layers:main"
+vpt-recognise-fittings = "vpt.cli.recognise_fittings:main"
+
+[tool.setuptools]
+# presets/, schema/, editor/ and nix/ keep their one home at the repo root; the installed package carries them inside
+# vpt/ (vpt/__init__.py finds them there with importlib.resources)
+packages = ["vpt", "vpt.cli", "vpt.presets", "vpt.schema", "vpt.editor", "vpt.nix"]
+include-package-data = false
+
+[tool.setuptools.package-dir]
+"vpt" = "vpt"
+"vpt.presets" = "presets"
+"vpt.schema" = "schema"
+"vpt.editor" = "editor"
+"vpt.nix" = "nix"
+
+[tool.setuptools.package-data]
+"vpt.presets" = ["*.json"]
+"vpt.schema" = ["*.json"]
+"vpt.editor" = ["*.js", "*.css"]
+"vpt.nix" = ["libredwg.nix"]
+
+[tool.setuptools.dynamic]
+version = { attr = "vpt.__version__" }

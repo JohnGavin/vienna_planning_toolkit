@@ -22,6 +22,21 @@ Walls   the straight pieces of the wall layers (excluded statuses left out); per
 Windows groups of straight lines on the window layers (window_groups(): parallel lines across one wall, plus the short sill
         ends); the opening (window_opening()): along the group, the median start to the median end of its parallel lines; across,
         the middle of the wall. Id <storey>-F<n>; the wall pieces ending at the opening; the rooms on its two sides.
+Readers for real drawings (preset keys; every default is the behaviour above, so the synthetic flat's plan file does not change):
+    text_reader       "plain": ezdxf's fast plain_text(). "mtext_clean": ezdxf's full MTEXT parser, which reads the
+                      non-breaking space \\~ inside formatting (the fast one drops it and what follows), after repairing a
+                      size value without its leading zero (\\H.66x;); then a stacked superscript's caret dropped ('m2^' -> 'm2')
+                      and spaces collapsed.
+    room_label_rule   "every_text": every text with a name line is a room; a lone area text joins the nearest name text.
+                      "area_with_name_above": only an area text makes a room: the name is the nearest text directly above it
+                      (left edges within max_dx_heights text heights, top within max_dy_heights), or the line above the area
+                      line of one multi-line MTEXT; anchor = the area text. Notes, dimensions and finishes on the label layer
+                      are then not rooms; texts of a table (a header matching table_header_regex and the rows in its window)
+                      never are.
+    wall_reader       "exploded_lines": the LINE and LWPOLYLINE pieces of the wall layers, block content included.
+                      "top_level_paths": every top-level entity of the wall layers (lines, polylines with their bulges, arcs,
+                      circles, splines and HATCH boundaries) flattened into straight pieces within flatten_m; block content left
+                      out (blocks on wall layers are often details or symbols, not walls).
 Checks (match / different / could-not-tell; could-not-tell is never a match):
     R1 every room has an id and a storey      R2 every door connects at least one room (never a room to itself)
     R3 every room has an outline              R4 every door's swing is determined
@@ -97,20 +112,85 @@ def _explode(e, layer: str, depth: int = 0):
         yield from _explode(v, layer if lay == "0" else lay, depth + 1)
 
 
-def _text_of(e) -> tuple[str, tuple[float, float], float] | None:
+TEXT_READERS = ("plain", "mtext_clean")
+LABEL_RULES = ("every_text", "area_with_name_above")
+WALL_READERS = ("exploded_lines", "top_level_paths")
+
+
+def options(pre: dict) -> dict:
+    """The reader options of a preset with their defaults filled in: {"text_reader", "room_label_rule": {...}, "wall_reader": {...}}.
+    A missing key is the default reader (an older preset keeps its behaviour); the distances have their one home in the
+    preset (presets/plan_extract.json) and are required only by the reader that uses them. An unknown value or a missing
+    distance raises ValueError, never a silent default."""
+    tr = pre.get("text_reader", "plain")
+    lr = dict({"rule": "every_text"}, **(pre.get("room_label_rule") or {}))
+    wr = dict({"reader": "exploded_lines"}, **(pre.get("wall_reader") or {}))
+    for what, val, allowed in (("text_reader", tr, TEXT_READERS), ("room_label_rule.rule", lr["rule"], LABEL_RULES),
+                               ("wall_reader.reader", wr["reader"], WALL_READERS)):
+        if val not in allowed:
+            raise ValueError(f"preset {what} must be one of {', '.join(allowed)}, not {val!r}")
+    need = ([("room_label_rule", lr, x) for x in ("max_dx_heights", "max_dy_heights", "table_window_right_heights",
+                                                  "table_window_down_heights")] if lr["rule"] == "area_with_name_above" else [])
+    need += [("wall_reader", wr, "flatten_m")] if wr["reader"] == "top_level_paths" else []
+    missing = [f"{blk}.{x}" for blk, d, x in need if not isinstance(d.get(x), (int, float)) or d[x] <= 0]
+    if missing:
+        raise ValueError(f"preset needs a positive number for {', '.join(missing)}")
+    return {"text_reader": tr, "room_label_rule": lr, "wall_reader": wr}
+
+
+_MT_BARE_DOT = re.compile(r"(?<!\\)((?:\\\\)*)\\([HQTW])\.")   # \H.66x; -> \H0.66x; (an even run of backslashes is text)
+_CARET = re.compile(r"(?<=\w)\^(?=\s|$)")                       # 'm2^': the caret ezdxf leaves after a stacked superscript
+
+
+def mtext_clean(raw: str) -> str:
+    """MTEXT content as plain text by ezdxf's full MTEXT parser (plain_mtext): the fast plain_text() of ezdxf 1.4 misreads the
+    non-breaking space \\~ inside formatting (it drops the code and what follows: '5,00\\~m{...}' -> '5,00'). One code the full
+    parser misreads is repaired first: a size value without its leading zero (\\H.66x; leaves '.66x;' in the text). Then the
+    caret of a stacked superscript is dropped, non-breaking spaces become spaces, spaces are collapsed and empty lines
+    dropped (a multi-line label stays multi-line)."""
+    from ezdxf.tools.text import plain_mtext
+    s = _MT_BARE_DOT.sub(lambda m: m.group(1) + "\\" + m.group(2) + "0.", raw)
+    return clean_lines(plain_mtext(s, split=False))
+
+
+def clean_lines(s: str) -> str:
+    lines = (_CARET.sub("", re.sub(r"[ \t ]+", " ", ln)).strip() for ln in s.replace("\r", "").split("\n"))
+    return "\n".join(ln for ln in lines if ln)
+
+
+def _text_of(e, reader: str = "plain") -> tuple[str, tuple[float, float], float] | None:
     t = e.dxftype()
     if t == "MTEXT":
         p = e.dxf.insert
-        return e.plain_text(), (float(p.x), float(p.y)), float(e.dxf.get("char_height", 0) or 0)
+        txt = mtext_clean(e.text) if reader == "mtext_clean" else e.plain_text()
+        return txt, (float(p.x), float(p.y)), float(e.dxf.get("char_height", 0) or 0)
     if t == "TEXT":
         p = e.dxf.align_point if e.dxf.hasattr("align_point") and (e.dxf.get("halign", 0) or e.dxf.get("valign", 0)) else e.dxf.insert
-        return e.dxf.text, (float(p.x), float(p.y)), float(e.dxf.get("height", 0) or 0)
+        txt = clean_lines(e.dxf.text) if reader == "mtext_clean" else e.dxf.text
+        return txt, (float(p.x), float(p.y)), float(e.dxf.get("height", 0) or 0)
     return None
 
 
-def ingest(doc, info: dict[str, dict]) -> dict:
-    """Model-space content by kind: texts [{text, x, y, h, layer}], polygons [{geom, layer, handle}], segments [{p, q, layer}],
-    arcs [{hinge, a, b, r, sweep, layer, handle}] (world coordinates)."""
+def text_box(e, text: str, x: float, y: float, h: float) -> tuple[float, float]:
+    """(left, top) edge of a text, estimated without fonts and ignoring rotation: MTEXT from its attachment point (lines
+    1.667 heights apart, width from the entity or 0.6 heights per character), TEXT from its alignment (baseline/bottom = top
+    one height above)."""
+    lines = text.split("\n") or [""]
+    if e.dxftype() == "MTEXT":
+        ap = int(e.dxf.get("attachment_point", 1) or 1)
+        col, row = (ap - 1) % 3, (ap - 1) // 3
+        tall = h * (1 + 1.667 * (len(lines) - 1) * float(e.dxf.get("line_spacing_factor", 1.0) or 1.0))
+        wide = float(e.dxf.get("width", 0) or 0) or 0.6 * h * max(len(ln) for ln in lines)
+        return x - (0.0, wide / 2, wide)[col], y + (0.0, tall / 2, tall)[row]
+    col = {0: 0, 1: 1, 2: 2, 3: 0, 4: 1, 5: 0}.get(int(e.dxf.get("halign", 0) or 0), 0)
+    wide = 0.6 * h * len(text)
+    top = y if int(e.dxf.get("valign", 0) or 0) == 3 else (y + h / 2 if int(e.dxf.get("valign", 0) or 0) == 2 else y + h)
+    return x - (0.0, wide / 2, wide)[col], top
+
+
+def ingest(doc, info: dict[str, dict], text_reader: str = "plain") -> dict:
+    """Model-space content by kind: texts [{text, x, y, h, left, top, layer}], polygons [{geom, layer, handle}], segments
+    [{p, q, layer}], arcs [{hinge, a, b, r, sweep, layer, handle}] (world coordinates)."""
     from ezdxf.math import Vec3
     texts, polys, segs, arcs = [], [], [], []
     for top in doc.modelspace():
@@ -118,9 +198,10 @@ def ingest(doc, info: dict[str, dict]) -> dict:
             t = e.dxftype()
             handle = top.dxf.get("handle", "") or ""
             if t in ("MTEXT", "TEXT"):
-                tx = _text_of(e)
+                tx = _text_of(e, text_reader)
                 if tx and tx[0].strip():
-                    texts.append({"text": tx[0], "x": tx[1][0], "y": tx[1][1], "h": tx[2], "layer": layer})
+                    left, top_y = text_box(e, tx[0], tx[1][0], tx[1][1], tx[2])
+                    texts.append({"text": tx[0], "x": tx[1][0], "y": tx[1][1], "h": tx[2], "left": left, "top": top_y, "layer": layer})
             elif t == "LINE":
                 a, b = e.dxf.start, e.dxf.end
                 if (a.x, a.y) != (b.x, b.y):
@@ -167,6 +248,77 @@ def labels_of(texts: list[dict], area_re: re.Pattern, key: str, start: int = 1) 
             near[0]["area_text"] = a["area_text"]
     return [{"id": f"{key}-R{n}", "storey": key, "label_no": n, "name": lab["name"], "area_text": lab["area_text"],
              "px": lab["x"], "py": lab["y"]} for n, lab in enumerate(named, start)]
+
+
+def labels_area_first(texts: list[dict], area_re: re.Pattern, key: str, rule: dict, start: int = 1) -> list[dict]:
+    """Room labels by the rule "area_with_name_above" (see the module docstring), numbered <key>-R<n>: first the multi-line
+    texts holding name and area, then the single-line area texts, each in drawing order. A text is an area text when
+    area_re matches at its start. Texts of a table are left out first: a header matching rule["table_header_regex"] and the
+    texts whose left edge lies from one header height left of the header's to table_window_right_heights right of it and
+    whose top lies up to table_window_down_heights below the header's."""
+    hdr = re.compile(rule["table_header_regex"]) if rule.get("table_header_regex") else None
+    heads = [t for t in texts if hdr and hdr.match(t["text"])]
+
+    def in_table(t: dict) -> bool:
+        for hd in heads:
+            hh = hd["h"] or 1.0
+            if (t is not hd and hd["left"] - hh <= t["left"] <= hd["left"] + rule["table_window_right_heights"] * hh
+                    and 0 < hd["top"] - t["top"] <= rule["table_window_down_heights"] * hh):
+                return True
+        return False
+    on = [t for t in texts if not any(t is hd for hd in heads) and not in_table(t)]
+    found, multi = [], set()
+    for i, t in enumerate(on):
+        lines = [x.strip() for x in t["text"].split("\n")]
+        for j in range(1, len(lines)):
+            if area_re.match(lines[j]) and lines[j - 1] and not area_re.match(lines[j - 1]):
+                found.append({"name": lines[j - 1], "area_text": lines[j], "x": t["x"], "y": t["y"]})
+                multi.add(i)
+                break
+    singles = [t for i, t in enumerate(on) if i not in multi and "\n" not in t["text"]]
+    for a in singles:
+        if not area_re.match(a["text"]):
+            continue
+        h = a["h"] or 1.0
+        above = [(n["top"] - a["top"], n) for n in singles if n is not a and not area_re.match(n["text"])
+                 and abs(n["left"] - a["left"]) <= rule["max_dx_heights"] * h and 0 < n["top"] - a["top"] <= rule["max_dy_heights"] * h]
+        name = min(above, key=lambda d: d[0])[1]["text"] if above else None
+        found.append({"name": name, "area_text": a["text"], "x": a["x"], "y": a["y"]})
+    return [{"id": f"{key}-R{n}", "storey": key, "label_no": n, "name": lab["name"], "area_text": lab["area_text"],
+             "px": lab["x"], "py": lab["y"]} for n, lab in enumerate(found, start)]
+
+
+def room_labels(texts: list[dict], area_re: re.Pattern, key: str, rule: dict) -> list[dict]:
+    """The room labels of one storey by the preset's room_label_rule (options()["room_label_rule"])."""
+    if rule["rule"] == "area_with_name_above":
+        return labels_area_first(texts, area_re, key, rule)
+    return labels_of(texts, area_re, key)
+
+
+def wall_segments_top_level(doc, layers: set[str], flatten: float) -> list[dict]:
+    """[{p, q, layer}]: the straight pieces of every top-level model-space entity on `layers` (wall_reader "top_level_paths"):
+    lines, polylines (bulges as arcs), arcs, circles, ellipses, splines and HATCH boundary paths, flattened to within
+    `flatten` drawing units. Block content is not read."""
+    from ezdxf import path as ezpath
+    out = []
+    for e in doc.modelspace():
+        layer = e.dxf.get("layer", "0")
+        if layer not in layers:
+            continue
+        t = e.dxftype()
+        try:
+            if t == "HATCH":
+                paths = list(ezpath.from_hatch(e))
+            elif t in ("LINE", "ARC", "LWPOLYLINE", "POLYLINE", "CIRCLE", "ELLIPSE", "SPLINE"):
+                paths = [ezpath.make_path(e)]
+            else:
+                continue
+        except (TypeError, ValueError):     # an entity ezdxf cannot turn into a path adds no wall piece
+            continue
+        for pth in paths:
+            pts = [(float(v.x), float(v.y)) for v in pth.flattening(flatten)]
+            out += [{"p": a, "q": b, "layer": layer} for a, b in zip(pts, pts[1:]) if a != b]
+    return out
 
 
 def assign(cx: float, cy: float, labels: list[dict], outlines: list, walls_tree, max_dist: float) -> tuple[str | None, str, str]:
@@ -466,7 +618,12 @@ def extract(doc, pre: dict) -> dict:
         return out
     k = 1000.0 / mm
     out["k"] = k
-    ing = ingest(doc, info)
+    opt = options(pre)
+    ing = ingest(doc, info, opt["text_reader"])
+    if opt["wall_reader"]["reader"] == "top_level_paths":
+        wall_layers = {n for n, v in info.items() if v["base"] in pre["layers"]["walls"]}
+        ing["segments"] = ([s for s in ing["segments"] if s["layer"] not in wall_layers]
+                           + wall_segments_top_level(doc, wall_layers, opt["wall_reader"]["flatten_m"] * k))
     exclude = set(pre.get("exclude_status") or [])
     area_re = re.compile(pre["label_area_regex"])
     wet_re = re.compile(pre["wet_room_pattern"])
@@ -480,7 +637,8 @@ def extract(doc, pre: dict) -> dict:
     all_checks: list[Check] = []
     for key in keys:
         here = lambda lay: storey_of(lay) == key and ok(lay)
-        labels = labels_of([t for t in ing["texts"] if here(t["layer"]) and base(t["layer"]) in L["room_labels"]], area_re, key)
+        labels = room_labels([t for t in ing["texts"] if here(t["layer"]) and base(t["layer"]) in L["room_labels"]], area_re, key,
+                             opt["room_label_rule"])
         primary = [p for p in ing["polygons"] if here(p["layer"]) and base(p["layer"]) in L["room_polygons"]]
         extra = [p for p in ing["polygons"] if here(p["layer"]) and base(p["layer"]) in (pre.get("extra_outline_layers") or [])]
         wall_rows = [s for s in ing["segments"] if here(s["layer"]) and base(s["layer"]) in L["walls"]]

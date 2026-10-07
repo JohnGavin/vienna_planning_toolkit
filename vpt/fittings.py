@@ -82,7 +82,7 @@ def run(doc, pre: dict, fp: dict) -> dict:
     k = ex["k"]
     info = ex["layers"]
     prims, out["skipped"] = ds.primitives(doc.modelspace(), info, fp["fitting_layers"], rules["flatten_m"] * k)
-    texts = plan_extract.ingest(doc, info)["texts"]
+    texts = plan_extract.ingest(doc, info, plan_extract.options(pre)["text_reader"])["texts"]
     exclude = set(rules.get("exclude_status") or [])
     all_checks: list[tuple[str, Check]] = []
     for st in ex["storeys"]:

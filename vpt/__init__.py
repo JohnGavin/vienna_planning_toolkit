@@ -16,11 +16,31 @@ Modules:
     layer_strip    the electrical base: layers deleted by storey, status and base name, with read-back checks
     dxf_symbols    shape features and rules: symbols from plain DXF geometry
     fittings       fittings recognised by shape and assigned to rooms
+    cli            the command-line tools (console scripts vpt-export-plan, vpt-export-layout-dxf, vpt-dwg-convert,
+                   vpt-strip-layers, vpt-recognise-fittings; tools/*.py are thin wrappers around them)
+
+Data (presets/, schema/, editor/, nix/libredwg.nix): found with importlib.resources. An installed package carries them
+inside the package (pyproject.toml maps the repo's top-level folders there); a source checkout reads them from the repo
+root, their one home.
 """
 from __future__ import annotations
 
+import importlib.resources
 import pathlib
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
-PRESETS = ROOT / "presets"
-SCHEMAS = ROOT / "schema"
+__version__ = "0.2.0"
+
+
+def _data_root() -> tuple[pathlib.Path, bool]:
+    """(the folder holding presets/, schema/, editor/, nix/; True when that is the installed package)."""
+    pkg = importlib.resources.files(__name__)
+    if pkg.joinpath("presets").is_dir():
+        return pathlib.Path(str(pkg)), True
+    return pathlib.Path(str(pkg)).resolve().parent, False
+
+
+DATA, INSTALLED = _data_root()
+ROOT = DATA if not INSTALLED else pathlib.Path.cwd()    # where relative work folders (_scratch/) go: the repo, else the cwd
+PRESETS = DATA / "presets"
+SCHEMAS = DATA / "schema"
+EDITOR = DATA / "editor"

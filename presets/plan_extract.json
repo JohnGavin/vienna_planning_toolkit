@@ -26,6 +26,22 @@
   "label_area_regex": "([0-9]+(?:[.,][0-9]+)?)\\s*m(?:²|2)",
   "label_area_regex_note": "A label line matching this is the room's area text; the first other line is the room's name.",
   "wet_room_pattern": "(?i)^(bad|wc|dusche|badezimmer|waschraum|wasch|sauna)",
+  "text_reader": "plain",
+  "text_reader_note": "plain = ezdxf's fast plain_text() (enough for the synthetic flat). mtext_clean = for drawings from a DWG converter: ezdxf's full MTEXT parser, which reads the non-breaking space \\~ inside formatting (the fast reader drops the code and what follows it, so an area line such as '5,00\\~m{...}' is not recognised), after repairing a size value without its leading zero (\\H.66x;); then the caret of a stacked superscript is dropped ('m2^' -> 'm2') and spaces are collapsed.",
+  "room_label_rule": {
+    "rule": "every_text",
+    "max_dx_heights": 1.5,
+    "max_dy_heights": 2.5,
+    "table_header_regex": "",
+    "table_window_right_heights": 20,
+    "table_window_down_heights": 12,
+    "note": "every_text = every text on a room-label layer with a name line is a room (its area line, or the nearest lone area text within three text heights, is its area). area_with_name_above = only an area text (label_area_regex matching at its start) makes a room: its name is the nearest single-line text directly above it (left edges within max_dx_heights text heights, top at most max_dy_heights higher), or the line above the area line of one multi-line MTEXT; the room's anchor is the area text. Use it when the label layer also holds notes, finishes, heights or dimensions. table_header_regex (empty = none, e.g. '^TOP\\b') marks the header of a table on the label layer; texts in its window (from one header height left of its left edge to table_window_right_heights to the right, down to table_window_down_heights below its top) are never labels. Distances in text heights of the area text (table: of the header)."
+  },
+  "wall_reader": {
+    "reader": "exploded_lines",
+    "flatten_m": 0.001,
+    "note": "exploded_lines = the LINE and LWPOLYLINE pieces on the wall layers, block content included (straight polyline pieces only). top_level_paths = every top-level entity on the wall layers (lines, polylines with their arcs, arcs, circles, splines and HATCH boundaries, flattened within flatten_m), block content left out: use it when walls are drawn as hatches, or when blocks on the wall layers are details or symbols rather than walls (their pieces would otherwise count as walls between a point and a room label)."
+  },
   "label_max_dist_m": 2.5,
   "label_max_dist_m_note": "A point outside every outline belongs to the nearest room label within this distance whose straight line to the point crosses no wall segment.",
   "doors": {

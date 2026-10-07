@@ -6,3 +6,5 @@ __pycache__/
 .Rhistory
 .RData
 result
+build/
+*.egg-info/
