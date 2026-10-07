@@ -19,6 +19,8 @@ from vpt import dwg_convert as dc
 
 PRESET = json.loads(dc.PRESET.read_text(encoding="utf-8"))
 ODA = dc.find_oda(PRESET)
+# the ODA File Converter is a GUI app: real launches are opt-in so an ordinary pytest run never touches the screen
+ODA_OPT_IN = os.environ.get("VPT_TEST_ODA") == "1"
 
 
 def path_preset(**kw) -> dict:
@@ -165,13 +167,15 @@ def test_unknown_dwg_version_and_bad_route(tmp_path, standin):
 @pytest.fixture(scope="module")
 def real_dwg(tmp_path_factory):
     """A real DWG made from the synthetic DXF by the ODA File Converter (DXF -> DWG)."""
+    if not ODA_OPT_IN:
+        pytest.skip("real ODA launches are opt-in: set VPT_TEST_ODA=1")
     if ODA is None:
         pytest.skip("ODA File Converter not installed")
     d = tmp_path_factory.mktemp("oda")
     (d / "in").mkdir()
     (d / "out").mkdir()
     shutil.copy2(SAMPLE_PATH, d / "in" / "synthetic_flat.dxf")
-    p = subprocess.run([ODA, str(d / "in"), str(d / "out"), "ACAD2018", "DWG", "0", "1", "synthetic_flat.dxf"], capture_output=True, text=True, timeout=120)
+    p, _ = dc.run_oda(ODA, [str(d / "in"), str(d / "out"), "ACAD2018", "DWG", "0", "1", "synthetic_flat.dxf"], PRESET, 120)
     made = d / "out" / "synthetic_flat.dwg"
     if not made.is_file():
         pytest.skip(f"ODA File Converter could not make a DWG (exit {p.returncode})")
@@ -214,3 +218,25 @@ def test_dxf_to_dwg_round_trip_with_libredwg(tmp_path):
     assert "Invalid DXF code 50 for MTEXT" not in p.stderr + p.stdout
     assert p.returncode == 0 and (tmp_path / "flat.dwg").is_file()
     assert dc.header_version(tmp_path / "flat.dwg").startswith("AC")
+
+
+def test_oda_launch_modes_build_the_right_command_and_env():
+    exe = "/Applications/ODAFileConverter.app/Contents/MacOS/ODAFileConverter"
+    args = ["/in", "/out", "ACAD2018", "DXF", "0", "1", "a.dwg"]
+    argv, env, observable = dc.oda_command(exe, args, dict(PRESET, oda_launch="direct"))
+    assert argv == [exe, *args] and env is None and observable
+    argv, env, observable = dc.oda_command(exe, args, dict(PRESET, oda_launch="offscreen"))
+    assert argv == [exe, *args] and env["QT_QPA_PLATFORM"] == "offscreen" and observable
+    argv, env, observable = dc.oda_command(exe, args, dict(PRESET, oda_launch="background"))
+    if shutil.which("open"):
+        assert argv == ["open", "-W", "-g", "-j", "-n", "-a", "/Applications/ODAFileConverter.app", "--args", *args]
+        assert env is None and not observable
+    with pytest.raises(dc.UsageError):
+        dc.oda_command(exe, args, dict(PRESET, oda_launch="visible"))
+
+
+def test_every_oda_launch_goes_through_the_helper():
+    for f in [*(ROOT / "vpt").glob("*.py"), *(ROOT / "tools").glob("*.py"), *(ROOT / "tests").glob("*.py")]:
+        text = f.read_text(encoding="utf-8")
+        if f.name != "test_dwg_convert.py" and not (f.name == "dwg_convert.py" and f.parent.name == "vpt"):
+            assert "ODAFileConverter" not in text or "subprocess" not in text, f.name

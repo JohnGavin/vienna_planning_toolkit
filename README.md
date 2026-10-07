@@ -106,6 +106,7 @@ nix-shell default.nix --run "python3 tools/check_editor.py --browser edge"
 DWG conversion:
 
 - Uses ODA File Converter if installed, else LibreDWG 0.14 from `nix/libredwg.nix`.
+- ODA runs hidden; real-ODA tests are opt-in (`VPT_TEST_ODA=1`).
 - nixpkgs LibreDWG 0.13 was seen to write a truncated DXF while exiting 0. So the output is always checked.
 - A missing EOF marker or ENTITIES/OBJECTS section is FAIL.
 - Converter errors, a non-zero exit or an unloadable DXF are INDETERMINATE.
