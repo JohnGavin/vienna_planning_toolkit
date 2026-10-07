@@ -77,6 +77,12 @@
     if (el && el.tagName !== 'BUTTON' && !(el instanceof SVGElement) && el !== current && !box.contains(el)) { open(el); return; }
     if (current && !current.contains(e.target) && !box.contains(e.target)) close(); });
 
+  // ---- dropdowns (details.vpt-dd): one open at a time; a click outside or Escape closes them (their text is a box over the page) ----
+  function closeDropdowns(except) { document.querySelectorAll('details.vpt-dd[open]').forEach(function (d) { if (d !== except) d.open = false; }); }
+  document.addEventListener('toggle', function (e) { if (e.target.matches && e.target.matches('details.vpt-dd') && e.target.open) closeDropdowns(e.target); }, true);
+  document.addEventListener('click', function (e) { var d = e.target.closest ? e.target.closest('details.vpt-dd') : null; if (!d) closeDropdowns(null); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDropdowns(null); });
+
   // ---- pill tabsets (Documentation tabs and sub-tabs, Parameters groups): direct children only, so a nested tabset keeps its own ----
   function initTabsets(root) {
     (root || document).querySelectorAll('.tabset').forEach(function (ts) {

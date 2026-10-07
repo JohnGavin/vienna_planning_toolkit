@@ -29,6 +29,11 @@ artifact host would wrap it):
   C16 Parameters is a page tab: the tab row reads Editor | Parameters | Documentation and stays in view on the Parameters page;
       Parameters then Editor (real clicks) shows the same storey with ink, the same viewBox, layers and symbols; a Live colour changed
       on Parameters is drawn on the Editor. Falsified every run: a build that resets the view when you return must fail the same measure.
+  C17 dropdowns, not text: on Editor and Parameters no visible prose block (8 words or more) sits outside a dropdown, except the
+      listed one-liners (status lines, the EXAMPLE banner, the chips, the help links); the dropdowns share a row with their
+      neighbours (tops within 4 px); the drawing's top edge is higher than before the change (Chrome dark 1440x900: the px are
+      reported). Falsified every run: all dropdowns opened, a prose block added, a dropdown forced onto its own row and 130 px
+      of text added above the drawing must each turn the matching measure red.
 
 Usage: check_editor.py [pages|artifact ...] [--browser chrome|edge] [--scheme light|dark] [--size 1440x900]
 The page opens in the given colour scheme (default light) at the given window size; C7/C8 cover both schemes either way.
@@ -320,9 +325,92 @@ def tabs_check(b, url: str, size: tuple, bug: bool = False) -> tuple:
                           f"viewBox {after['vb']} (was {before['vb']}), {after['symbols']} symbols, {ink} drawn pixels; Live colour {LIGHT_TEST}: {lit0} pixels before, {lit1} after")
 
 
+STAGE_TOP_BEFORE = 518      # px: top of the Editor drawing at load, Chrome dark 1440x900, with the notes open (main d626096, measured: 517.9)
+MAX_PROSE_WORDS = 8
+ROW_TOL_PX = 4
+ALLOWED_PROSE = ".el-status, .el-info, .el-example-banner, .vpt-chip, .vpt-helprow > p"   # one-liners: live status, the EXAMPLE marker, notices, hover links
+PROSE_JS = r"""(function (allowed, minWords) {
+  var out = [], seen = [];
+  document.querySelectorAll('.vpt p, .vpt .callout, .vpt ul, .vpt ol').forEach(function (e) {
+    if (e.closest(allowed + ', table, #tipbox, .dwg-body, .el-below, template, [hidden], .tabset-nav, details:not([open])') || !e.getClientRects().length) return;
+    if (seen.some(function (s) { return s.contains(e); })) return; seen.push(e);
+    var w = (e.textContent.trim().match(/\S+/g) || []).length;
+    if (w >= minWords) out.push([Math.round(e.getBoundingClientRect().height), w, e.textContent.trim().slice(0, 40)]);
+  }); return out; })"""
+ROWS_JS = r"""(function (sel) {
+  var row = document.querySelector(sel); if (!row || !row.getClientRects().length) return null;
+  var kids = Array.prototype.filter.call(row.children, function (c) { return c.getClientRects().length; });
+  return { tops: kids.map(function (c) { return Math.round(c.getBoundingClientRect().top * 10) / 10; }),
+           dd: kids.filter(function (c) { return c.matches('details.vpt-dd'); }).map(function (c) { return c.querySelector('summary').textContent; }) }; })"""
+STAGE_TOP_JS = "(function () { window.scrollTo(0, 0); return document.querySelector('.el-page:not([hidden]) svg.el-svg').getBoundingClientRect().top; })()"
+
+
+def dropdowns_check(b, url: str, size: tuple, scheme: str, browser: str) -> tuple:
+    """C17: see the module docstring. Returns (ok, detail)."""
+    b.open(url, settle=1.5)
+    b.js("try { localStorage.clear(); } catch (e) {}")      # a draft left by the earlier checks would hide the example banner and change the top
+    b.open(url, settle=1.5)
+    prose = lambda: b.js(PROSE_JS + f"({json.dumps(ALLOWED_PROSE)}, {MAX_PROSE_WORDS})")
+    rows = lambda sel: b.js(ROWS_JS + f"({json.dumps(sel)})")
+    spread = lambda r: max(r["tops"]) - min(r["tops"]) if r and r["tops"] else None
+    wide = size[0] >= 900
+    top = b.js(STAGE_TOP_JS)
+    strict = (browser, scheme, tuple(size)) == ("chrome", "dark", (1440, 900))
+    ed_prose, ed_rows = prose(), rows(".vpt-helprow")
+    n_ed = len(ed_rows["dd"]) if ed_rows else 0
+    b.js("window.vptShowTab('vpt-pane-params')")
+    pa_prose, pa_rows = prose(), rows(".el-params-bar")
+    n_pa = len(pa_rows["dd"]) if pa_rows else 0
+    b.js("window.vptShowTab('vpt-pane-editor')")
+    problems = []
+    if ed_prose or pa_prose:
+        problems.append(f"prose outside a dropdown: Editor {ed_prose}, Parameters {pa_prose}")
+    if n_ed < 3 or n_pa < 1:
+        problems.append(f"dropdowns found: Editor {n_ed} (want 3+), Parameters {n_pa} (want 1+)")
+    if wide:
+        for nm, r in (("Editor help row", ed_rows), ("Parameters bar", pa_rows)):
+            if r is None or spread(r) is None or spread(r) > ROW_TOL_PX:
+                problems.append(f"{nm}: tops {r and r['tops']} not within {ROW_TOL_PX} px")
+    if strict and not top < STAGE_TOP_BEFORE:
+        problems.append(f"drawing top {top:.1f} px is not above the {STAGE_TOP_BEFORE} px it had before")
+    # falsified: each fault must turn its measure red, else this check cannot go red
+    b.js("document.querySelectorAll('.vpt details.vpt-dd').forEach(function (d) { d.open = true; })")
+    f_open = prose()
+    b.js("document.querySelectorAll('.vpt details.vpt-dd').forEach(function (d) { d.open = false; })")
+    b.js("(function () { var p = document.createElement('p'); p.id = 'c17-fake'; p.textContent = 'This is a block of explanatory text that is always visible on the page, in the old way, with no dropdown around it.';"
+         " document.querySelector('.vpt-pane:not([hidden])').insertBefore(p, document.querySelector('.vpt-pane:not([hidden])').firstChild); })()")
+    f_block = prose()
+    b.js("document.getElementById('c17-fake').remove()")
+    b.js("document.querySelector('.vpt-helprow > details.vpt-dd:last-of-type').style.flex = '1 1 100%'")
+    f_row = spread(rows(".vpt-helprow"))
+    b.js("document.querySelector('.vpt-helprow > details.vpt-dd:last-of-type').style.flex = ''")
+    b.js("(function () { var d = document.createElement('div'); d.id = 'c17-pad'; d.style.height = '130px'; var f = document.querySelector('.vpt-filebar'); f.parentNode.insertBefore(d, f); })()")
+    top_pad = b.js(STAGE_TOP_JS)
+    b.js("document.getElementById('c17-pad').remove()")
+    fals = []
+    if not f_open:
+        fals.append("opening the dropdowns did not turn the prose measure red")
+    if not f_block:
+        fals.append("an added prose block was not seen")
+    if not (f_row is not None and f_row > ROW_TOL_PX) and wide:
+        fals.append(f"a dropdown forced onto its own row was not seen (spread {f_row})")
+    if not top_pad - top >= 110:
+        fals.append(f"130 px of text above the drawing moved it only {top_pad - top:.1f} px")
+    if strict and not top_pad >= STAGE_TOP_BEFORE:
+        fals.append(f"with 130 px added the drawing top {top_pad:.1f} is still above {STAGE_TOP_BEFORE}")
+    detail = (f"Editor: {n_ed} dropdowns {ed_rows and ed_rows['dd']} in the help row (tops spread {spread(ed_rows)} px), prose outside dropdowns {len(ed_prose)}; "
+              f"Parameters: {n_pa} dropdown(s) in the button row (tops spread {spread(pa_rows)} px), prose outside {len(pa_prose)}; drawing top {top:.1f} px "
+              f"(before: {STAGE_TOP_BEFORE} px{'' if strict else ', compared only in Chrome dark 1440x900'}; saved {STAGE_TOP_BEFORE - top:.1f} px); "
+              f"falsified: dropdowns opened -> {len(f_open)} prose block(s), block added -> {len(f_block)}, row forced apart -> spread {f_row}, +130 px -> top {top_pad:.1f}")
+    if fals:
+        return None, "the falsifying runs did not go red, the check cannot go red: " + "; ".join(fals) + ". " + detail
+    return not problems, ("; ".join(problems) + " | " if problems else "") + detail
+
+
 def run(variant: str, browser: str = "chrome", scheme: str = "light", size: tuple = (1400, 1000)) -> dict:
     res: dict = {"variant": variant, "browser": browser, "scheme": scheme, "size": list(size), "checks": {}, "status": "PASS"}
     url = page_url(variant)
+    page_scheme = scheme        # the C8 loop below reuses the name `scheme`
 
     def put(cid: str, ok, detail: str, **extra):
         res["checks"][cid] = dict({"status": "PASS" if ok is True else ("FAIL" if ok is False else "INDETERMINATE"), "detail": detail}, **extra)
@@ -508,9 +596,11 @@ def run(variant: str, browser: str = "chrome", scheme: str = "light", size: tupl
         for scheme in ("light", "dark"):
             b.colour_scheme(scheme)
             b.call("Runtime.evaluate", {"expression": "new Promise(function (ok) { setTimeout(ok, 200); })", "awaitPromise": True})
+            b.js("document.querySelectorAll('.vpt details.vpt-dd').forEach(function (d) { d.open = true; })")    # the dropdowns' text is checked too
             con[scheme] = b.js(CONTRAST_JS)
             b.js("window.vptShowTab('vpt-pane-params')")                    # the Parameters tables and pills are checked too
             con[scheme + "_params"] = b.js(CONTRAST_JS)
+            b.js("document.querySelectorAll('.vpt details.vpt-dd').forEach(function (d) { d.open = false; })")
             b.js("window.vptShowTab('vpt-pane-docs')")
             con[scheme + "_docs"] = b.js(CONTRAST_JS)
             b.js("window.vptShowTab('vpt-pane-editor')")
@@ -538,6 +628,10 @@ def run(variant: str, browser: str = "chrome", scheme: str = "light", size: tupl
         ok16, d16 = tabs_check(b, url, size)
         bad16, dbad16 = tabs_check(b, url, size, bug=True)
         put("C16", ok16 and not bad16, f"{d16} | falsified (a build that resets the view on return): {'NOT caught' if bad16 else 'caught'}: {dbad16}")
+        b.viewport(*size)
+        b.colour_scheme(page_scheme)
+        ok17, d17 = dropdowns_check(b, url, size, page_scheme, browser)
+        put("C17", ok17, d17)
         errors = errors_main + [e for e in b.errors if "falsify" not in e]
         put("C10", not errors, f"{len(errors)} console error(s)/exception(s): {errors[:3]}")
     if any(c["status"] == "FAIL" for c in res["checks"].values()):

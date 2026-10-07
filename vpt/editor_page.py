@@ -61,6 +61,13 @@ def etip(d: dx.Docs, key: str, extra: str = "", more: str | None = None) -> str:
     return dx.popup(_c(d, key)["label"], d.bl("electrical." + key), d.more(more or (howto_anchor(part) if part else anchor(key))), extra)
 
 
+def dropdown(label: str, body_html: str, cls: str = "", attrs: str = "") -> str:
+    """A closed dropdown (<details>): its one-line label in a row, the text in a box that opens over the page (never pushes the
+    drawing down). Used for every explanation that used to sit open on the Editor and Parameters pages."""
+    return (f'<details class="vpt-dd{" " + cls if cls else ""}"{" " + attrs if attrs else ""}><summary>{dx.esc(label)}</summary>'
+            f'<div class="vpt-dd-body">{body_html}</div></details>')
+
+
 def _json(obj) -> str:
     return json.dumps(obj, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
 
@@ -172,7 +179,7 @@ def page_template(lib: dict, d: dx.Docs, rules: dict, v: dict) -> str:
 
 
 def params_panel(d: dx.Docs, v: dict) -> str:
-    """The Parameters panel: its bar and the callout that explains Live / Needs re-export once (the tables are built by the page
+    """The Parameters panel: its bar, with the dropdown that explains Live / Needs re-export once (the tables are built by the page
     script from the parameters, so a loaded or reset file shows at once)."""
     pp = d.t["params_panel"]
     b = lambda act, label, key: f'<button type="button" class="tip" data-pact="{act}" data-tip="{dx.esc(etip(d, key))}">{label}</button>'
@@ -182,10 +189,10 @@ def params_panel(d: dx.Docs, v: dict) -> str:
     if v["fs"]:
         bar += b("save-in-place", "Save to file…", "params_save")
     bar += b("load", "Load parameters…", "params_load") + b("reset", "Reset to the page's file", "params_reset")
-    note = dx.callout(dx.bullets(pp["callout_" + ("pages" if v["download"] else "artifact")]))
+    bar += dropdown(pp["dropdown_label"], dx.bullets(pp["callout_" + ("pages" if v["download"] else "artifact")]))
     return (f'<div class="el-params"><h2 class="el-params-h"><span class="tip" data-tip="{dx.esc(etip(d, "params"))}">Parameters</span></h2>'
             '<p class="el-params-status el-status" role="status" aria-live="polite"></p>'
-            f'<div class="el-params-bar">{bar}</div>{note}'
+            f'<div class="el-params-bar">{bar}</div>'
             '<div class="el-params-body"></div><input type="file" class="el-params-file" accept=".json,application/json" hidden aria-label="Load a parameter file"></div>')
 
 
@@ -444,13 +451,12 @@ def build(plan: dict, variant: str) -> str:
                     print=d.print_cfg(), params_panel=t["params_panel"], docs_ui={"internals": t["docs"]["internals"], "fs": t["docs"]["fs"]})
     note_key = "artifact_note" if variant == "artifact" else "pages_note"
     note = dx.esc(t["banners"][note_key]).replace("{url}", f'<a href="{dx.esc(t["pages_url"])}">{dx.esc(t["pages_url"])}</a>')
-    head = (f'<header class="vpt-head"><h1>{dx.esc(t["title"])}</h1>'
-            f'<p class="vpt-banner vpt-synth" data-banner="synthetic"><b>{dx.esc(t["banners"]["synthetic"])}</b> '
-            f'<span>{dx.esc(t["banners"]["synthetic_more"])}</span></p>'
-            f'<p class="vpt-banner vpt-own" data-banner="own" hidden></p>'
-            f'<p class="el-unv-banner"><span class="tip el-badge" data-tip="{dx.esc(set_tip(sdef, d))}">UNVERIFIED</span> '
-            f'{dx.esc(sdef["name_de"])} (version {dx.esc(sdef["version"])}): {dx.esc(sdef["status"])}.</p>'
-            f'<p class="vpt-note">{note}</p></header>')
+    bn = t["banners"]
+    head = (f'<header class="vpt-head"><div class="vpt-headrow"><h1>{dx.esc(t["title"])}</h1><div class="vpt-chips">'
+            f'<span class="vpt-chip vpt-synth" data-banner="synthetic"><b>{dx.esc(bn["synthetic"])}</b></span>'
+            f'<span class="vpt-chip vpt-own" data-banner="own" hidden></span>'
+            f'<span class="vpt-chip el-unv-banner"><span class="tip el-badge" data-tip="{dx.esc(set_tip(sdef, d))}">UNVERIFIED</span> '
+            f'{dx.esc(bn["unverified_chip"])} {dx.esc(sdef["name_de"])} (v{dx.esc(sdef["version"])})</span></div></div></header>')
     fs = t["docs"]["fs"]
     tabs = ('<div class="vpt-navrow"><div class="vpt-tabs" role="tablist" aria-label="Page">'
             '<button type="button" role="tab" id="vpt-tab-editor" aria-controls="vpt-pane-editor" aria-selected="true">Editor</button>'
@@ -459,10 +465,13 @@ def build(plan: dict, variant: str) -> str:
             f'<span class="fs-toggle" role="group" aria-label="Text size"><button type="button" class="fs-btn" id="vpt-fs-dec" title="{dx.esc(fs["smaller"])}" '
             f'aria-label="{dx.esc(fs["smaller"])}">A−</button><button type="button" class="fs-btn" id="vpt-fs-inc" title="{dx.esc(fs["larger"])}" '
             f'aria-label="{dx.esc(fs["larger"])}">A+</button></span></div>')
-    intro = (f'<div class="el-intro"><p>{dx.tip("How this page works", etip(d, "page", more=howto_anchor()))} · '
+    intro = (f'<div class="el-intro vpt-helprow"><p>{dx.tip("How this page works", etip(d, "page", more=howto_anchor()))} · '
              f'{dx.tip("How to use, step by step", dx.popup(t["howto"]["label"], d.bl("electrical.howto"), d.more(howto_anchor())))} · '
              f'{dx.tip("What is new", dx.popup(t["whatsnew"]["label"], d.bl("electrical.whatsnew"), d.more("doc-el-whatsnew")))} · '
-             f'{dx.tip("Privacy", etip(d, "privacy"))}</p></div>')
+             f'{dx.tip("Privacy", etip(d, "privacy"))}</p>'
+             + dropdown(bn["synthetic_label"], f'<p>{dx.esc(bn["synthetic_more"])}</p>', attrs='data-banner-more="synthetic"')
+             + dropdown(bn["unverified_label"], f'<p><b>{dx.esc(sdef["name_de"])}</b> (version {dx.esc(sdef["version"])}): {dx.esc(sdef["status"])}.</p>')
+             + dropdown(bn["files_label"], f'<p>{note}</p>') + '</div>')
     filebar = (f'<div class="vpt-filebar"><button type="button" class="tip" data-vpt="open-plan" data-tip="{dx.esc(etip(d, "plan"))}">Open plan…</button>'
                f' {dx.tip("or paste a file", etip(d, "paste"))}'
                '<input type="file" class="vpt-plan-file" accept=".json,application/json" hidden aria-label="Open a plan file">'

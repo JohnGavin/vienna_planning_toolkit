@@ -28,10 +28,25 @@ body { margin: 0; background: var(--bg); color: var(--fg); font: var(--fs-base)/
 .vpt button:disabled { opacity: 0.5; cursor: not-allowed; }
 .vpt button:focus-visible, .vpt select:focus-visible, .vpt input:focus-visible, .vpt summary:focus-visible, .el-view:focus-visible { outline: 3px solid var(--link); outline-offset: 1px; }
 .pass { color: var(--pass); font-weight: 600; } .fail { color: var(--fail); font-weight: 600; } .unk { color: var(--unk); font-weight: 600; }
-/* banners */
-.vpt-banner, .el-unv-banner, .vpt-note { margin: 0.25rem 0; padding: 0.3rem 0.7rem; background: var(--head); color: var(--fg); }
-.vpt-banner { border-left: 4px solid var(--unk); } .vpt-synth b { font-size: 1.05rem; }
-.el-unv-banner { border-left: 4px solid var(--unk); } .vpt-note { border-left: 4px solid var(--line); font-size: 0.9rem; }
+/* the synthetic / UNVERIFIED / own-plan notices are one-line chips beside the title; their detail is in the dropdowns below */
+.vpt-headrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.vpt-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.vpt-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border: 1px solid var(--unk); border-radius: 999px; background: var(--head); color: var(--fg); font-size: 0.9rem; }
+.vpt-chip[hidden] { display: none; }
+/* dropdowns (<details>): a closed one is a one-line pill in a row; opened, its text is a box over the page, so nothing below moves */
+.vpt-helprow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.vpt-helprow > p { margin: 0; }
+details.vpt-dd { position: relative; display: inline-block; }
+details.vpt-dd[hidden] { display: none; }
+details.vpt-dd > summary { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--btn); font-size: 0.9rem; cursor: pointer; list-style: none; }
+details.vpt-dd > summary::-webkit-details-marker { display: none; }
+details.vpt-dd > summary::after { content: "\25BE"; color: var(--muted); }
+details.vpt-dd[open] > summary { border-color: var(--link); }
+details.vpt-dd > .vpt-dd-body { position: absolute; z-index: 1200; left: 0; top: calc(100% + 4px); width: min(30rem, calc(100vw - 32px)); padding: 6px 12px; background: var(--bg); color: var(--fg);
+  border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 6px; box-shadow: 0 4px 14px var(--shadow); font-size: 0.92rem; font-weight: 400; }
+.vpt-dd-body p { margin: 0.2rem 0; } .vpt-dd-body ul.bl { margin: 0.2rem 0; padding-left: 1.1rem; } .vpt-dd-body ul.bl li { margin: 3px 0; }
+@media (max-width: 640px) { details.vpt-dd[open] { flex: 1 1 100%; } details.vpt-dd > .vpt-dd-body { position: static; width: auto; margin-top: 4px; } }
 /* page tabs (underline) and storey tabs (a set of sections is a tabset); the text-size control on the right */
 .vpt-navrow { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 8px; border-bottom: 1px solid var(--line); margin: 0.6rem 0 0.4rem 0; }
 .vpt-navrow .vpt-tabs { border-bottom: none; margin: 0; flex: 1 1 auto; }
@@ -171,9 +186,8 @@ details.acc[open] .caret { transform: rotate(90deg); }
 .el-params { margin: 0.4rem 0; font-size: 0.9rem; }
 .el-params-h { margin: 0.2rem 0 0.4rem 0; font-size: 1.15rem; }
 .el-params[data-edited="1"] .el-params-h::after, .vpt-tabs button[data-edited="1"]::after { content: " (edited)"; color: var(--unk); font-weight: 400; font-size: 0.85em; }
-.el-params-bar { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.el-params-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 4px 0; }
 /* one readable full-width table per group: words never break inside (the page's overflow-wrap: anywhere is undone here) */
-.el-params .callout { font-size: 0.92rem; }
 .el-ptable th, .el-ptable td { text-align: left; padding: 0.35rem 0.7rem; border-bottom: 1px solid var(--line); vertical-align: middle; overflow-wrap: normal; word-break: normal; hyphens: none; }
 .el-ptable td.el-plabel { min-width: 16rem; }
 .el-ptable td.el-punit { white-space: nowrap; color: var(--muted); }

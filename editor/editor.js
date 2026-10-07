@@ -424,7 +424,7 @@
   }
   // one tab per group (CFG.params_panel.tabs), one full-width table per tab: Parameter | Value | Unit | Source. Live values change the
   // page now; the rest is computed when the plan is exported (tools/export_plan.py): its tab carries a "Needs re-export" pill and,
-  // in the shareable demo (which cannot export), its inputs are read-only. Explained once, in the callout above the tabs.
+  // in the shareable demo (which cannot export), its inputs are read-only. Explained once, in the dropdown beside the buttons.
   var PPC = CFG.params_panel || { tabs: [], columns: ['Parameter', 'Value', 'Unit', 'Source'], live: 'Live', export: 'Needs re-export' };
   var EXPORT_RO = V.id === 'artifact';
   function short(t, n) { var w = String(t || '').split(/\s+/).filter(Boolean); return w.slice(0, n).join(' ') + (w.length > n ? ' …' : ''); }
@@ -591,6 +591,7 @@
     PLAN = plan;
     var synth = document.querySelector('[data-banner="synthetic"]'), own = document.querySelector('[data-banner="own"]');
     if (synth) synth.hidden = !plan.synthetic;
+    var synthMore = document.querySelector('[data-banner-more="synthetic"]'); if (synthMore) { synthMore.hidden = !plan.synthetic; synthMore.open = false; }
     if (own) { own.hidden = !!plan.synthetic; own.textContent = plan.synthetic ? '' : fmt(CFG.banners.own_plan, { file: plan.drawing.file }); }
     plan.storeys.forEach(function (st, i) {
       var tab = document.createElement('button'); tab.type = 'button'; tab.setAttribute('role', 'tab'); tab.setAttribute('data-storey', st.key);

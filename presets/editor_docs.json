@@ -6,6 +6,10 @@
   "intro": "Plan where the outlets, switches and lights of a flat go, on top of the architect's drawing. Your plan file is read in this browser and never sent anywhere.",
   "banners": {
     "synthetic": "Synthetic sample – keine realen Gebäudedaten",
+    "synthetic_label": "About the sample",
+    "unverified_chip": "symbols:",
+    "unverified_label": "About the symbols",
+    "files_label": "Files and privacy",
     "synthetic_more": "The drawing is the toolkit's invented sample flat (samples/synthetic_flat.dxf). Open your own plan file to work on your drawing.",
     "own_plan": "Plan file: {file} (read in this browser only; nothing is uploaded).",
     "artifact_note": "This is the shareable demo. To save files or print, use the GitHub Pages version: {url} (it works once the repository is public). Here: copy the layout or the parameters, and the draft stays in this browser.",
@@ -52,6 +56,7 @@
   "params_panel": {
     "live": "Live",
     "export": "Needs re-export",
+    "dropdown_label": "Live or Needs re-export?",
     "callout_pages": [
       "**Live**: changes the page now.",
       "**Needs re-export**: the suggestion geometry and the examples are computed when **tools/export_plan.py** exports the plan file.",
