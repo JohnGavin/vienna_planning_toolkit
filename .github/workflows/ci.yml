@@ -34,3 +34,8 @@ jobs:
           python tools/build_editor.py --check
       - name: Generated files are up to date
         run: git diff --exit-code --stat
+      - name: Install the package (pyproject.toml)
+        run: python -m pip install .
+      - name: The installed package works outside the repo (data via importlib.resources, entry points)
+        working-directory: ${{ runner.temp }}
+        run: python "$GITHUB_WORKSPACE/tools/check_installed.py" "$GITHUB_WORKSPACE"

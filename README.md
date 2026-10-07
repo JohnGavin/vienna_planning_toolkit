@@ -37,18 +37,41 @@ What step 5 does:
 
 Layer names map to storeys, rooms, walls and doors in `presets/plan_extract.json`.
 
+Real drawings often need three reader options there (pass your copy with `--preset`):
+
+| Key | Default | Use instead when |
+|-----|---------|------------------|
+| `text_reader` | `plain` | `mtext_clean`: area texts come out wrong or missing (MTEXT codes such as `\~`, `\H.66x;`) |
+| `room_label_rule.rule` | `every_text` | `area_with_name_above`: the label layer also holds notes, finishes, heights or dimensions |
+| `wall_reader.reader` | `exploded_lines` | `top_level_paths`: walls are hatches, or blocks on wall layers are details |
+
+## Use as a Python package
+
+- Package `vpt` (version in `vpt/__init__.py`), built from `pyproject.toml`.
+- Presets, schemas and editor files ship inside the package.
+- Pin a commit of this repo in your own nix file:
+
+```nix
+vptSrc = pkgs.fetchFromGitHub { owner = "JohnGavin"; repo = "vienna_planning_toolkit"; rev = "<commit>"; hash = "<sri>"; };
+vpt = import "${vptSrc}/nix/vpt.nix" { inherit pkgs; python3Packages = pkgs.python312Packages; };
+# then: pkgs.python312.withPackages (ps: [ vpt ])  ->  import vpt, and the vpt-* commands
+```
+
+- Without nix: `python3 -m pip install .` from a checkout.
+
 ## Tools
 
-| Tool | What it does |
-|------|--------------|
-| `tools/dwg_convert.py` | DWG to DXF, then checks the DXF is complete |
-| `tools/export_plan.py` | DXF to plan file for the editor |
-| `tools/export_layout_dxf.py` | Layout into a DXF for the Elektroplaner |
-| `tools/strip_layers.py` | Deletes layers the electrical base does not need |
-| `tools/recognise_fittings.py` | Finds WC, basin, bath, sink by shape |
-| `tools/validate_flat.py` | Checks the synthetic flat |
-| `tools/build_editor.py` | Builds the editor pages |
-| `tools/check_editor.py` | Headless browser check of the pages |
+| Tool | Command when installed | What it does |
+|------|------------------------|--------------|
+| `tools/dwg_convert.py` | `vpt-dwg-convert` | DWG to DXF, then checks the DXF is complete |
+| `tools/export_plan.py` | `vpt-export-plan` | DXF to plan file for the editor |
+| `tools/export_layout_dxf.py` | `vpt-export-layout-dxf` | Layout into a DXF for the Elektroplaner |
+| `tools/strip_layers.py` | `vpt-strip-layers` | Deletes layers the electrical base does not need |
+| `tools/recognise_fittings.py` | `vpt-recognise-fittings` | Finds WC, basin, bath, sink by shape |
+| `tools/validate_flat.py` | (repo only) | Checks the synthetic flat |
+| `tools/build_editor.py` | (repo only) | Builds the editor pages |
+| `tools/check_editor.py` | (repo only) | Headless browser check of the pages |
+| `tools/check_installed.py` | (repo only) | Checks the installed package from outside the repo |
 
 Every check has three outcomes: **PASS**, **FAIL**, **INDETERMINATE** ("could not tell"). Unconfirmed is never reported as a pass.
 
@@ -75,10 +98,11 @@ Every check has three outcomes: **PASS**, **FAIL**, **INDETERMINATE** ("could no
 |------|---------|
 | `presets/` | All settings: sample, symbols, rules, texts, layers |
 | `schema/` | JSON Schemas for plan, layout and parameter files |
-| `vpt/` | Python package behind the tools |
+| `vpt/` | Python package behind the tools (`vpt/cli/`: the commands) |
+| `pyproject.toml` | Package build: `vpt`, its data and commands |
 | `editor/` | Page CSS and scripts |
-| `tools/` | Command-line tools |
-| `nix/` | LibreDWG 0.14 as a stand-alone nix shell |
+| `tools/` | Command-line tools (thin wrappers of `vpt/cli/`) |
+| `nix/` | `vpt.nix` (the package), `vpt-shell.nix`, LibreDWG 0.14 shell |
 | `samples/` | Synthetic flat, its plan file, an Elektro DXF |
 | `site/`, `artifact/` | The two built pages |
 | `tests/` | pytest suite, including deliberate-failure tests |
@@ -96,6 +120,7 @@ nix-shell default.nix --run "python3 -m pytest tests -q"
 nix-shell default.nix --run "python3 tools/check_editor.py"         # headless Chrome check of both pages
 nix-shell default.nix --run "python3 tools/check_editor.py --scheme dark --size 1440x900"
 nix-shell default.nix --run "python3 tools/check_editor.py --browser edge"
+nix-shell nix/vpt-shell.nix --run "python3 tools/check_installed.py ."   # the installed package
 ```
 
 - **Reproducible:** same inputs give byte-identical outputs.
@@ -123,6 +148,7 @@ Exit codes:
 | `dwg_convert.py` | 0 PASS, 1 FAIL (DXF cut off), 3 INDETERMINATE, 2 usage |
 | `strip_layers.py` | 0 PASS, 1 FAIL, 3 INDETERMINATE (unclassified layer), 2 usage |
 | `recognise_fittings.py` | 0 PASS, 1 FAIL (wet room without fitting), 3 INDETERMINATE, 2 usage |
+| `check_installed.py` | 0 PASS, 1 FAIL (not installed, data missing, output differs), 2 usage |
 
 Synthetic sample (`samples/synthetic_flat.dxf`):
 

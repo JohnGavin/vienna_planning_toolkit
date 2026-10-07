@@ -22,9 +22,8 @@ import json
 import pathlib
 import re
 
-from vpt import ROOT, docs as dx, el_checks, el_examples, el_layout, el_params, el_rules, el_symbols, plan as plan_mod
+from vpt import EDITOR, docs as dx, el_checks, el_examples, el_layout, el_params, el_rules, el_symbols, plan as plan_mod
 
-EDITOR = ROOT / "editor"
 VARIANTS = {
     "pages": {"id": "pages", "download": True, "fs": True, "print": True, "clipboard": True},
     "artifact": {"id": "artifact", "download": False, "fs": False, "print": False, "clipboard": True},

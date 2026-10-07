@@ -34,7 +34,15 @@ presets/plan_extract.json     storeys, rooms, walls, doors, windows: how they ar
 presets/dxf_export.json       layer names and texts of the Elektro DXF export
 presets/el_*.json, editor_docs.json   symbols, parameters (rules, colours), page settings, page texts (one home each)
 schema/                       JSON Schemas: plan file, layout file, parameter file
-vpt/                          Python package (dxf_svg, plan_extract, plan, el_*, docs, editor_page)
+vpt/                          Python package (dxf_svg, plan_extract, plan, el_*, docs, editor_page); version: vpt/__init__.__version__ (one home)
+vpt/cli/                      the commands' code (main(argv)); installed as vpt-export-plan, vpt-export-layout-dxf, vpt-dwg-convert,
+                              vpt-strip-layers, vpt-recognise-fittings; tools/<same name>.py are thin wrappers
+pyproject.toml                package build (setuptools): presets/, schema/, editor/, nix/libredwg.nix are mapped INTO the
+                              installed package; vpt/__init__.py finds them with importlib.resources (source checkout: repo root)
+nix/vpt.nix, nix/vpt-shell.nix   the package for consumers (buildPythonPackage), and a shell with it installed
+tools/check_installed.py      the installed package from outside the repo: data, entry points, byte-identical plan file and page
+presets/plan_extract.json     also the reader options for real drawings: text_reader, room_label_rule, wall_reader (defaults
+                              keep the synthetic flat's plan file byte-identical; tests/test_plan_readers.py)
 editor/                       the page's CSS and JS; `// @pages-only-start/end` regions are left out of the artifact
 tools/export_plan.py, export_layout_dxf.py, build_editor.py, check_editor.py (+ cdp.py)   plan export, layout -> DXF, page build (+ gates), headless Chrome/Edge check
 vpt/dwg_convert.py, tools/dwg_convert.py, presets/dwg_convert.json, nix/libredwg.nix   DWG -> DXF (ODA File Converter, else LibreDWG 0.14) + completeness check
@@ -53,7 +61,12 @@ P=/path/to/vienna_planning_toolkit
 nix-shell $P/default.nix --run "python3 $P/tools/synthetic_flat.py"
 nix-shell $P/default.nix --run "python3 -m pytest $P/tests -q -p no:cacheprovider"
 nix-shell $P/default.nix --run "R_PROFILE_USER=/dev/null Rscript -e 'setwd(\"$P\"); targets::tar_make()'"
+nix-build $P/nix/vpt.nix                                                              # the package
+nix-shell $P/nix/vpt-shell.nix --run "python3 $P/tools/check_installed.py $P"         # installed, from outside the repo
 ```
+
+A new data folder or file type the package reads at run time must be added to pyproject.toml (`package-dir`,
+`package-data`); tests/test_package.py fails when a needed file would not ship.
 
 `R_PROFILE_USER=/dev/null` stops a personal `~/.Rprofile` from loading
 packages the project shell does not have.

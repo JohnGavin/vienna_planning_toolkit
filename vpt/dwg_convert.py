@@ -40,7 +40,7 @@ from collections import Counter
 
 from ezdxf import recover
 
-from vpt import PRESETS, ROOT
+from vpt import DATA, PRESETS, ROOT
 
 PRESET = PRESETS / "dwg_convert.json"
 PASS, FAIL, UNK = "PASS", "FAIL", "INDETERMINATE"
@@ -70,7 +70,7 @@ def write_crash_result(path: pathlib.Path, base: dict, exc: BaseException) -> di
 
 def _abs(p: str) -> pathlib.Path:
     q = pathlib.Path(p).expanduser()
-    return q if q.is_absolute() else ROOT / q
+    return q if q.is_absolute() else DATA / q
 
 
 def find_oda(preset: dict) -> str | None:
