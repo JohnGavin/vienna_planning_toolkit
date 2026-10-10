@@ -2,7 +2,6 @@
   "name": "editor_docs",
   "description": "Every text of the electrical editor page. Documentation: short bullets with **bold** keywords (gate: a list item at most 20 words, a paragraph at most 35, every section with a list or table; vpt/docs.py doc_text_problems), arranged by vpt/editor_page.py into tabs (docs.tabs) and folded details. Hover popups (tips): at most 4 bullets of about 12 words. Status messages, How to, What's new, the Parameters panel texts. One home: the page reads them from here.",
   "title": "Elektroplan Editor",
-  "pages_url": "https://johngavin.github.io/vienna_planning_toolkit/",
   "intro": "Plan where the outlets, switches and lights of a flat go, on top of the architect's drawing. Your plan file is read in this browser and never sent anywhere.",
   "banners": {
     "synthetic": "Synthetic sample – keine realen Gebäudedaten",
@@ -12,18 +11,17 @@
     "files_label": "Files and privacy",
     "synthetic_more": "The drawing is the toolkit's invented sample flat (samples/synthetic_flat.dxf). Open your own plan file to work on your drawing.",
     "own_plan": "Plan file: {file} (read in this browser only; nothing is uploaded).",
-    "artifact_note": "This is the shareable demo. To save files or print, use the GitHub Pages version: {url} (it works once the repository is public). Here: copy the layout or the parameters, and the draft stays in this browser.",
     "pages_note": "Files you open are read in this browser only; Save writes to your computer. Nothing is uploaded."
   },
   "docs": {
-    "short_answer": "**Short answer:** drag symbols onto the plan, connect each switch to its lights, then print (GitHub Pages version) or copy the layout (demo).",
+    "short_answer": "**Short answer:** drag symbols onto the plan, connect each switch to its lights, then save the layout or print it.",
     "quick_start_label": "Quick start",
     "quick_start": [
       "**Look at the example**: the sample flat opens with one room planned.",
       "**Drag a symbol** from the **Symbols** palette onto the drawing.",
       "**Connect**: click a switch, then each light it works.",
-      "**Keep your work**: Save layout (Pages) or Copy layout (demo).",
-      "**Print view** → ⌘P / Ctrl+P → Save as PDF (Pages version)."
+      "**Keep your work**: Save layout (or Copy layout).",
+      "**Print view** → ⌘P / Ctrl+P → Save as PDF."
     ],
     "tabs": {
       "start": {"label": "Start", "note": "What the editor does, and the fastest way in."},
@@ -32,11 +30,11 @@
       "symbols": {"label": "Symbols", "note": "The symbol set the palette offers. Hover a code for its links."},
       "rules": {"label": "Rules & parameters", "note": "The values behind the suggestions, hints, colours and widths."},
       "files": {"label": "Files", "note": "The three file kinds the page reads and writes, field by field."},
-      "about": {"label": "About", "note": "Privacy, the two versions of this page, what is new, how it is built."}
+      "about": {"label": "About", "note": "Privacy, what is new, how it is built."}
     },
     "chips": {"symbols": "**{n}** symbols", "unverified": "symbols **UNVERIFIED**", "rule_sets": "**{n}** rule sets", "storeys": "**{n}** storey in the sample", "local": "nothing uploaded"},
-    "tags": {"unverified": "verify", "set": "verify", "save": "Pages version", "save_in_place": "Chrome, Edge", "params_save": "Pages version",
-             "print": "Pages version", "copy_layout": "both versions", "rules_select": "to confirm", "suggestions": "not printed", "sug_all": "not printed",
+    "tags": {"unverified": "verify", "set": "verify", "save_in_place": "Chrome, Edge", 
+             "rules_select": "to confirm", "suggestions": "not printed", "sug_all": "not printed",
              "autosave": "this browser", "plan": "3 outcomes", "open": "3 outcomes", "params_load": "3 outcomes", "hints": "3 outcomes",
              "dxf_export": "your computer"},
     "footer": "**Elektroplan Editor** · generic toolkit, synthetic sample, no real building data · symbols **UNVERIFIED** until an Elektroplaner confirms them.",
@@ -48,9 +46,9 @@
                   "**sections** of values (label, value, unit, mark, source), and the **rules** with two rule sets.",
                   "Written by **Save parameters**; read by **Load parameters** after its checks."]},
     "build": {"label": "Build",
-      "bullets": ["**One code base**, two pages: tools/build_editor.py.",
+      "bullets": ["**One code base**: tools/build_editor.py builds the page.",
                   "**Every text** comes from presets/editor_docs.json; every value from presets/el_*.json.",
-                  "**Gates**: short popups, short Documentation text, no dangling link, artifact contract."]},
+                  "**Gates**: short popups, short Documentation text, no dangling link."]},
     "status_pills": {"set": "set", "confirm": "to confirm", "none": "no value yet", "verified": "verified", "unverified": "UNVERIFIED"}
   },
   "params_panel": {
@@ -61,11 +59,6 @@
       "**Live**: changes the page now.",
       "**Needs re-export**: the suggestion geometry and the examples are computed when **tools/export_plan.py** exports the plan file.",
       "Changing those here is **saved with the parameters**, but takes effect only **after re-exporting**."
-    ],
-    "callout_artifact": [
-      "**Live**: changes the page now.",
-      "**Needs re-export**: the suggestion geometry and the examples are computed when **tools/export_plan.py** exports the plan file.",
-      "This demo **cannot export** a plan, so those values are shown **read-only** here."
     ],
     "columns": ["Parameter", "Value", "Unit", "Source"],
     "rule_set_column": "Rule set",
@@ -119,8 +112,7 @@
     "facts": [
       "**Scale note**: the plan's page scale changed by fitting the storey (or your view) to A3.",
       "**Tested** in Google Chrome; Safari and Firefox should work the same. Check the preview."
-    ],
-    "demo": "**Not in this demo**: open the GitHub Pages version, paste your copied layout there, then Print view."
+    ]
   },
   "electrical": {
     "page": {"label": "The electrical editor", "bullets": [
@@ -222,7 +214,7 @@
       "Every change is kept as a **draft in this browser** (a private window may refuse).",
       "**Closing by mistake loses nothing**: the draft comes back on reopening.",
       "**Not a file**: save or copy the layout to keep it.",
-      "**Per browser and per version**: the demo's draft does not appear on the Pages version.",
+      "**Per browser**: a draft does not move to another browser.",
       "**Discard draft** clears the tab and the draft."]},
     "file": {"label": "Layout file format", "bullets": [
       "**JSON**, described by schema/el_layout.schema.json (fields below).",
@@ -245,8 +237,7 @@
       "**Print view** prints the ticked drawing and electrical layers on **one A3 landscape** page.",
       "With a **title row**, a **scale note** and a **legend** of the symbols placed.",
       "**Only placed symbols print**: suggestion rings and a picked, unplaced symbol do not.",
-      "The print view **warns** when a symbol is picked but not placed, or nothing is placed.",
-      "**Only in the GitHub Pages version**: the shareable demo cannot print."]},
+      "The print view **warns** when a symbol is picked but not placed, or nothing is placed."]},
     "symbols": {"label": "Symbols of the set", "bullets": [
       "Every symbol: **code, names, category, layer**, and what it may be connected to.",
       "**Drawn by us**, at its size in mm on the storey sheet.",
@@ -367,8 +358,7 @@
     "params_save": {"label": "Save parameters", "bullets": [
       "**Downloads** el_parameters.json, with the time and page it was saved from.",
       "For the suggestions: put it at **presets/el_parameters.json** and **export the plan again**.",
-      "**Save to file…** (Chrome, Edge) writes back into a file you chose.",
-      "Only in the **GitHub Pages version**."]},
+      "**Save to file…** (Chrome, Edge) writes back into a file you chose."]},
     "params_copy": {"label": "Copy parameters", "bullets": [
       "**Copies** the parameters (the Save parameters JSON) to the clipboard.",
       "**No clipboard allowed**: the text is shown in a box, selected."]},
@@ -391,12 +381,6 @@
     "example_clear": {"label": "Clear example", "bullets": [
       "**Removes the example** (symbols and links): start from an empty storey.",
       "**Your own layouts** are never touched."]},
-    "variants": {"label": "Two versions of this page", "bullets": [
-      "**Same code**, two pages (tools/build_editor.py).",
-      "**GitHub Pages version**: real work: Save layout, Save to file, Save parameters, **Print view**.",
-      "**Shareable demo** (claude.ai artifact): no download, save or print; **Copy** instead.",
-      "**Both** open a plan, layout or parameter file, or accept its text by paste.",
-      "**Work does not move** between them by itself: copy the layout, paste it in the other."]},
     "messages": {
       "placed": "Placed {name} ({code}).",
       "outside": "Let go outside the drawing: nothing placed.",
@@ -507,20 +491,15 @@
                  "Pick **complex** in **Example** for a whole storey; **Clear example** empties it.",
                  "**Change anything** and it becomes your own layout."]},
       {"key": "files", "label": "Keep your work", "details": ["save", "save_in_place", "copy_layout", "open", "autosave"],
-       "steps_pages": ["**Save layout** downloads this storey's layout; in Chrome **Save to file…** saves in place.",
+       "steps": ["**Save layout** downloads this storey's layout; in Chrome **Save to file…** saves in place.",
                        "**Open layout…** opens a saved file after checking its drawing and storey.",
-                       "A **draft** is kept in this browser after every change; **Discard draft** clears it."],
-       "steps_artifact": ["**Copy layout** puts the layout's text on the clipboard; paste it into a file.",
-                          "**Open layout…** (or paste) opens it again after checking its drawing and storey.",
-                          "A **draft** stays in this browser only: it does not reach the Pages version."]},
+                       "A **draft** is kept in this browser after every change; **Discard draft** clears it.",
+                "**Copy layout** puts the layout's text on the clipboard; paste it into a file or back into the page."]},
       {"key": "print", "label": "Print", "details": ["print"],
-       "steps_pages": ["**Place** the symbols first: picked symbols and rings do **not** print.",
+       "steps": ["**Place** the symbols first: picked symbols and rings do **not** print.",
                        "Tick the **layers** you want on paper; zoom if you want only a part.",
                        "Click **Print view**: white paper, print colours, a legend of the placed symbols.",
-                       "**⌘P / Ctrl+P** → **Save as PDF**, A3 landscape, margins none, background graphics on."],
-       "steps_artifact": ["**No printing** in this demo.",
-                          "**Copy layout** here, open the **GitHub Pages version**, and paste it there (⌘V / Ctrl+V).",
-                          "Then **Print view** there: your work does not move between versions by itself."]},
+                       "**⌘P / Ctrl+P** → **Save as PDF**, A3 landscape, margins none, background graphics on."]},
       {"key": "plan", "label": "Your own plan", "details": ["plan", "paste", "storeys", "layers", "el_layers"],
        "steps": ["On your computer: **python3 tools/export_plan.py your.dxf** writes **your.plan.json**.",
                  "Click **Open plan…** and pick it (or paste its text): it stays in this browser.",
@@ -552,7 +531,6 @@
                  "**Print view** warns when a symbol is picked but not placed: rings never print."]},
       {"date": "04.10.2026", "title": "The editor in the toolkit",
        "items": ["**Open plan**: your own drawing, exported on your computer by tools/export_plan.py.",
-                 "**Two versions**: GitHub Pages (save, print) and a shareable demo (copy, paste).",
                  "**Synthetic sample flat** with the simple example (Wechselschaltung in the Wohnzimmer).",
                  "**Paste** a plan, layout or parameter file anywhere on the page.",
                  "**Light and dark page theme**; the drawing stage stays black."]}
@@ -631,7 +609,6 @@
     "electrical.params_reset": ["**Back to the page's own** parameters."],
     "electrical.example": ["**Simple**: one room, two-way switching, two sockets.", "**Complex**: the whole storey.", "**Generated** from the rooms, doors and suggestions.", "**Change anything**: it becomes your own layout."],
     "electrical.example_clear": ["**Removes the example**: start from an empty storey."],
-    "electrical.variants": ["**Pages version**: save, save to file, print.", "**Demo**: copy and paste instead."],
     "electrical.layer": ["**Drawing layer** of the plan.", "**Tick** to show it under the symbols."]
   }
 }

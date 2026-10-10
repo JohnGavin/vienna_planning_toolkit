@@ -1,6 +1,6 @@
 """Popups, tables and Documentation (vpt/docs.py), and the texts preset (presets/editor_docs.json): every popup is short, the
 Documentation is short bullets in tabs (a measurable limit, falsified), every old #doc-... anchor still resolves, every How-to part
-names existing sections, every variant-specific How-to part has both variants, the Parameters panel texts cover every section."""
+names existing sections and has steps, the Parameters panel texts cover every section."""
 import re
 
 import pytest
@@ -12,7 +12,7 @@ from vpt import docs, editor_page, el_params
 
 @pytest.fixture(scope="module")
 def built():
-    return be.build_all()
+    return be.build()
 
 
 def test_popup_gate_counts_bullets_and_words():
@@ -33,7 +33,7 @@ def test_howto_parts_reference_existing_sections():
     d = docs.Docs.load()
     for p in d.t["howto"]["parts"]:
         assert all(k in d.t["electrical"] for k in p["details"]), p["key"]
-        assert "steps" in p or ("steps_pages" in p and "steps_artifact" in p), p["key"]
+        assert "steps" in p, p["key"]
 
 
 def test_sections_are_bullets_not_prose():
@@ -59,9 +59,8 @@ def test_table_is_sortable_filterable_and_escaped():
     assert 'class="sf"' in t and 'type="search"' in t and "&lt;x&gt;" in t and "tblscroll" in t and '<tr id="doc-r1">' in t
 
 
-@pytest.mark.parametrize("variant", ["pages", "artifact"])
-def test_documentation_is_short(built, variant):
-    page = built[variant]
+def test_documentation_is_short(built):
+    page = built
     assert docs.doc_text_problems(page) == []
     st = docs.doc_stats(page)
     # bullets, not prose: list items outnumber paragraphs many times over, and no paragraph or item is over the limit
@@ -77,9 +76,9 @@ def test_documentation_is_short(built, variant):
     (lambda r: re.sub(r'data-docsec="[^"]+"', "", r), "no Documentation section"),
 ])
 def test_documentation_gate_falsified(built, plant, expect):
-    probs = docs.doc_text_problems(plant(built["pages"]))
+    probs = docs.doc_text_problems(plant(built))
     assert any(expect in p for p in probs), probs
-    assert editor_page.problems(plant(built["pages"])) != []
+    assert editor_page.problems(plant(built)) != []
 
 
 def test_documentation_gate_on_the_old_page_fails():
@@ -89,19 +88,17 @@ def test_documentation_gate_on_the_old_page_fails():
     assert any("paragraph of 194 words" in p for p in probs) and any("no list or table" in p for p in probs)
 
 
-@pytest.mark.parametrize("variant", ["pages", "artifact"])
-def test_every_old_anchor_still_resolves(built, variant):
-    ids = set(re.findall(r'\bid="(doc-[a-z0-9-]+)"', built[variant]))
+def test_every_old_anchor_still_resolves(built):
+    ids = set(re.findall(r'\bid="(doc-[a-z0-9-]+)"', built))
     old = (ROOT / "tests" / "doc_anchors.txt").read_text(encoding="utf-8").split()
     assert len(old) > 80
     assert sorted(set(old) - ids) == []
-    assert docs.check_doc_links(built[variant]) == []
+    assert docs.check_doc_links(built) == []
 
 
-@pytest.mark.parametrize("variant", ["pages", "artifact"])
-def test_no_at_once_wording(built, variant):
+def test_no_at_once_wording(built):
     """The Parameters panel and the Documentation say Live / Needs re-export, never 'at once' / 'on export'."""
-    page = built[variant]
+    page = built
     assert not re.search(r"\bat once\b", page, re.I) and "'on export'" not in page
 
 

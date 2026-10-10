@@ -258,9 +258,7 @@
         '<button type="button" data-act="do-print"' + t('print') + '>Print / Save as PDF</button>' +
         '<span class="ps-hint">' + escH(PCFG ? PCFG.paper + ' ' + PCFG.orientation : '') + ' · Destination: Save as PDF · Margins: none · Background graphics: on</span>';
       s.querySelector('[data-act="exit-print"]').onclick = exitPrint;
-      // @pages-only-start
       s.querySelector('[data-act="do-print"]').onclick = function () { window.print(); };
-      // @pages-only-end
       s.querySelectorAll('input[name="ps-mode"]').forEach(function (r) { r.onchange = function () { if (r.checked) setMode(r.value); }; });
       document.body.classList.add('dwg-printing'); s.hidden = false; close();
       if (v.printLegend) s.querySelector('.ps-legend').innerHTML = v.printLegend();
