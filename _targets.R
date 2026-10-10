@@ -108,7 +108,7 @@ list(
     },
     format = "file"
   ),
-  # the electrical editor: plan file of the sample, then the two pages built from it
+  # the electrical editor: plan file of the sample, then the page built from it
   tar_target(
     editor_sources,
     c(
@@ -165,14 +165,14 @@ list(
     format = "file"
   ),
   tar_target(
-    editor_pages,
+    editor_page,
     {
       editor_sources
       res <- run_python(c("tools/build_editor.py", "--plan", flat_plan))
       if (res$status != 0L) {
         cli::cli_abort(c("editor build failed its gates (exit {res$status})", res$output))
       }
-      c("site/index.html", "artifact/electrical_planner.html")
+      "site/index.html"
     },
     format = "file"
   )

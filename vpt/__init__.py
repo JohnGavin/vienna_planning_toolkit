@@ -11,7 +11,7 @@ Modules:
     el_links       switch-light links, switching groups, the switch-type proposal, layout hints
     el_examples    generated example layouts (simple, complex)
     docs           popups (short bullets, with a gate), sortable tables, Documentation sections
-    editor_page    the HTML of the editor page (both variants)
+    editor_page    the HTML of the editor page
     dwg_convert    DWG -> DXF (ODA File Converter or LibreDWG) and the completeness check of the DXF
     layer_strip    the electrical base: layers deleted by storey, status and base name, with read-back checks
     dxf_symbols    shape features and rules: symbols from plain DXF geometry

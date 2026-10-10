@@ -14,15 +14,14 @@
    proposed switch type and Apply; the layout checks H1-H9 (mirror vpt/el_checks.py); the suggestions of the chosen rule set (computed by vpt/el_rules.py
    into the plan file: shown here as faint rings, and snapped to). Groups, proposals, link rules and hints mirror vpt/el_links.py.
 
-   Variants (CFG.variant): pages = Save layout / Save to file / Save parameters / Print view exist; artifact = they do not
-   (downloads, file pickers, print and dialogs are inert there): Copy layout / Copy parameters instead. Both: in-page
-   confirmation (never the browser's own dialogs), files read with FileReader, paste of a plan, layout or parameter file. */
+   Save layout / Save to file / Save parameters / Print view, and Copy layout / Copy parameters. In-page confirmation (never the
+   browser's own dialogs), files read with FileReader, paste of a plan, layout or parameter file. */
 (function () {
   'use strict';
   var NS = 'http://www.w3.org/2000/svg';
   function J(id) { var el = document.getElementById(id); return el ? JSON.parse(el.textContent) : null; }
   var LIB = J('el-symbols'), SCHEMA = J('el-schema'), PLAN_SCHEMA = J('el-plan-schema'), CFG = J('el-config'), RULES = J('el-rules'), PARAMS = J('el-params');
-  var M = CFG.messages, V = CFG.variant || {};
+  var M = CFG.messages;
   var SWC = RULES.switching, LINKL = RULES.links.layer, MATCH = 'match', DIFF = 'different', UNK = 'could-not-tell';
   function fmt(s, o) { return String(s).replace(/\{(\w+)\}/g, function (_, k) { return o && k in o ? o[k] : '{' + k + '}'; }); }
   function escH(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -35,7 +34,7 @@
   function tipList(title, items, anchor) { return '<p class="tip-h"><b>' + escH(title) + '</b></p><ul class="tipl">' +
     items.map(function (x) { return '<li>' + escH(x).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>') + '</li>'; }).join('') + '</ul>' + (anchor ? more(anchor) : ''); }
 
-  // ---- in-page confirmation (never the browser's dialog: it is inert in the shareable demo) and the copy box ----
+  // ---- in-page confirmation (never the browser's own dialog) and the copy box ----
   var ASK = document.querySelector('.vpt-ask'), askCb = null;
   function ask(msg, onYes, onNo) {
     if (askCb && askCb.no) askCb.no();
@@ -69,13 +68,11 @@
     r.onerror = function () { cb(null, f.name, r.error); };
     r.readAsText(f);
   }
-  // @pages-only-start (tools/build_editor.py leaves these regions out of the shareable demo, where they would be inert)
   function download(text, name) {
     var a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name;
     document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
   }
-  // @pages-only-end
   var GSTAT = document.querySelector('.vpt-status');
   function gstatus(msg, kind) { GSTAT.textContent = msg; GSTAT.title = msg; GSTAT.className = 'vpt-status el-status' + (kind ? ' el-' + kind : ''); }
 
@@ -424,9 +421,8 @@
   }
   // one tab per group (CFG.params_panel.tabs), one full-width table per tab: Parameter | Value | Unit | Source. Live values change the
   // page now; the rest is computed when the plan is exported (tools/export_plan.py): its tab carries a "Needs re-export" pill and,
-  // in the shareable demo (which cannot export), its inputs are read-only. Explained once, in the dropdown beside the buttons.
+  // Explained once, in the dropdown beside the buttons.
   var PPC = CFG.params_panel || { tabs: [], columns: ['Parameter', 'Value', 'Unit', 'Source'], live: 'Live', export: 'Needs re-export' };
-  var EXPORT_RO = V.id === 'artifact';
   function short(t, n) { var w = String(t || '').split(/\s+/).filter(Boolean); return w.slice(0, n).join(' ') + (w.length > n ? ' …' : ''); }
   function ptip(label, mark, source, live) {
     return '<p class="tip-h"><b>' + escH(label) + '</b></p><ul class="tipl"><li><b>' + escH(short(mark || 'no mark', 8)) + '</b></li>' +
@@ -437,11 +433,11 @@
     var confirm = /confirm/i.test(m), none = /no value/i.test(m);
     return '<span class="pill pill--' + (none ? 'watch' : confirm ? 'check' : 'good') + '" title="' + escH(m) + '">' + escH(none ? 'no value yet' : confirm ? 'to confirm' : short(m, 3)) + '</span>'; }
   function row(path, label, v, unit, mark, source, live, nullable) {
-    var colour = typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v), ro = !live && EXPORT_RO;
+    var colour = typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
     return '<tr class="el-prow" data-path="' + escH(path) + '" data-live="' + (live ? '1' : '0') + '"><td class="el-plabel"><span class="tip" data-tip="' + escH(ptip(label, mark, source, live)) + '">' +
       escH(label) + '</span></td><td class="el-pval">' +
-      (colour ? '<input type="color" value="' + escH(v) + '" aria-label="' + escH(label) + '"' + (ro ? ' disabled' : '') + '> <code>' + escH(v) + '</code>'
-              : '<input type="text" value="' + escH(fmtVal(v)) + '" placeholder="' + (nullable ? 'no value yet' : '') + '" aria-label="' + escH(label) + '"' + (ro ? ' readonly' : '') + '>') +
+      (colour ? '<input type="color" value="' + escH(v) + '" aria-label="' + escH(label) + '"> <code>' + escH(v) + '</code>'
+              : '<input type="text" value="' + escH(fmtVal(v)) + '" placeholder="' + (nullable ? 'no value yet' : '') + '" aria-label="' + escH(label) + '">') +
       '</td><td class="el-punit">' + escH(unit || '') + '</td><td class="el-psrc">' + markPill(mark) + '</td></tr>';
   }
   function groupRow(text) { return '<tr class="el-pgroup"><th colspan="4" scope="colgroup">' + escH(text) + '</th></tr>'; }
@@ -489,15 +485,13 @@
     var pfile = PP.querySelector('input.el-params-file'), phandle = null;
     var PB = function (a) { return PP.querySelector('[data-pact="' + a + '"]'); };
     PB('copy').addEventListener('click', function () { copyText(paramsSaveText(), function () { pstatus(M.copied_params, 'ok'); }); });
-    // @pages-only-start
     if (PB('save')) PB('save').addEventListener('click', function () { var n = PMETA.file_name || 'el_parameters.json'; download(paramsSaveText(), n); pstatus(fmt(M.params_saved, { file: n }), 'ok'); });
     var sip = PB('save-in-place');
-    if (sip) { sip.hidden = !(V.fs && 'showSaveFilePicker' in window);
+    if (sip) { sip.hidden = !('showSaveFilePicker' in window);
       sip.addEventListener('click', async function () { try {
           if (!phandle) phandle = await window.showSaveFilePicker({ suggestedName: PMETA.file_name || 'el_parameters.json', types: [{ description: 'Parameters', accept: { 'application/json': ['.json'] } }] });
           var wr = await phandle.createWritable(); await wr.write(paramsSaveText()); await wr.close(); pstatus(fmt(M.params_saved, { file: phandle.name }), 'ok');
         } catch (err) { if (err && err.name === 'AbortError') return; pstatus(fmt(M.save_failed, { msg: err && err.message || err }), 'err'); } }); }
-    // @pages-only-end
     PB('load').addEventListener('click', function () { pfile.click(); });
     pfile.addEventListener('change', function () { var f = pfile.files && pfile.files[0]; if (!f) return;
       readFile(f, function (tx, name, err) { pfile.value = ''; if (tx === null) { pstatus(fmt(M.params_refused_unknown, { msg: 'the file could not be read (' + err + ')' }), 'err'); return; } loadParamsText(tx, name); }); });
@@ -960,9 +954,8 @@
       return 'match';
     }
     function layoutText() { return JSON.stringify(layout(), null, 1); }
-    function inPlaceLabel() { var b = B('save-in-place'); if (!b) return; b.hidden = !(V.fs && 'showSaveFilePicker' in window);
+    function inPlaceLabel() { var b = B('save-in-place'); if (!b) return; b.hidden = !('showSaveFilePicker' in window);
       b.textContent = handle ? 'Save (in place: ' + handle.name + ')' : 'Save to file…'; }
-    // @pages-only-start
     async function saveInPlace() {
       try {
         if (!handle) handle = await window.showSaveFilePicker({ suggestedName: D.file_name, types: [{ description: 'Electrical layout', accept: { 'application/json': ['.json'] } }] });
@@ -975,8 +968,7 @@
         var f = await hs[0].getFile(); readFile(f, function (t, n) { if (t !== null) openText(t, n, hs[0], false); }); }
       catch (err) { if (err && err.name === 'AbortError') return; fileIn.click(); }
     }
-    // @pages-only-end
-    function openPicker() { if (typeof openPickerFs === 'function' && V.fs && 'showOpenFilePicker' in window) openPickerFs(); else fileIn.click(); }
+    function openPicker() { if ('showOpenFilePicker' in window) openPickerFs(); else fileIn.click(); }
     fileIn.addEventListener('change', function () { var f = fileIn.files && fileIn.files[0]; if (!f) return;
       readFile(f, function (t, n, err) { fileIn.value = ''; if (t === null) { status(fmt(M.refused_unknown, { msg: 'the file could not be read (' + err + ')' }), 'err'); return; } openText(t, n, null, false); }); });
     function showSet() { pg.querySelectorAll('.el-pal-set').forEach(function (d) { d.hidden = d.getAttribute('data-set') !== S.set; }); }
@@ -1063,10 +1055,8 @@
 
     // ---- the bar ----
     B('open').addEventListener('click', openPicker);
-    // @pages-only-start
     if (B('save')) B('save').addEventListener('click', function () { download(layoutText(), D.file_name); status(fmt(M.saved_download, { file: D.file_name }), 'ok'); });
     if (B('save-in-place')) B('save-in-place').addEventListener('click', saveInPlace);
-    // @pages-only-end
     B('copy').addEventListener('click', function () { var o = layout(); copyText(JSON.stringify(o, null, 1), function () {
       status(fmt(M.copied_layout, { n: o.symbols.length, l: o.links.length }), 'ok'); }); });
     B('undo').addEventListener('click', doUndo); B('redo').addEventListener('click', doRedo);

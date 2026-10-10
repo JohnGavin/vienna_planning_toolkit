@@ -1,12 +1,6 @@
-"""The HTML of the electrical editor, one code base for two pages (tools/build_editor.py):
-
-  pages     the GitHub Pages page (site/index.html): a whole HTML document; Save layout (download), Save to file (File
-            System Access, Chrome/Edge), Save parameters, Print view (A3) besides everything below.
-  artifact  the shareable demo (artifact/electrical_planner.html): page CONTENT only (no doctype/html/head/body; it starts
-            with <title>); no download, file save, print or dialog (those are inert there): Copy layout / Copy parameters
-            instead, the draft in localStorage, and a note pointing to the Pages version.
-
-Both: Open plan / Open layout / Load parameters through <input type="file"> (read in the browser), paste of any of the three
+"""The HTML of the electrical editor, the GitHub Pages page (site/index.html, built by tools/build_editor.py): a whole HTML
+document; Save layout (download), Save to file (File System Access, Chrome/Edge), Save parameters, Print view (A3), Copy layout /
+Copy parameters, Open plan / Open layout / Load parameters through <input type="file"> (read in the browser), paste of any of the three
 file kinds, in-page confirmation instead of the browser's dialogs, the synthetic flat's plan embedded as the default with the simple
 example shown, theme-aware page colours (the drawing stage stays black), a layout that works at phone width.
 
@@ -20,15 +14,8 @@ from __future__ import annotations
 
 import json
 import pathlib
-import re
 
 from vpt import EDITOR, docs as dx, el_checks, el_examples, el_layout, el_params, el_rules, el_symbols, plan as plan_mod
-
-VARIANTS = {
-    "pages": {"id": "pages", "download": True, "fs": True, "print": True, "clipboard": True},
-    "artifact": {"id": "artifact", "download": False, "fs": False, "print": False, "clipboard": True},
-}
-
 
 def anchor(key: str) -> str:
     return "doc-el-" + dx.slug(key)
@@ -113,7 +100,7 @@ def palette(lib: dict, d: dx.Docs) -> str:
             + "".join(out) + "</details>")
 
 
-def page_template(lib: dict, d: dx.Docs, rules: dict, v: dict) -> str:
+def page_template(lib: dict, d: dx.Docs, rules: dict) -> str:
     """One storey's stage, without the drawing (the script clones it per storey and fills in the SVG and the drawing layers)."""
     sdef = el_symbols.default_set(lib)
     link_layer = rules["links"]["layer"]
@@ -121,12 +108,8 @@ def page_template(lib: dict, d: dx.Docs, rules: dict, v: dict) -> str:
                                              f'{label}</button>')
     sets = "".join(f'<option value="{dx.esc(x["id"])}"{" selected" if x["id"] == lib["default_set"] else ""}>{dx.esc(x["name_de"])} '
                    f'(v{dx.esc(x["version"])}{", ungeprüft" if not x["verified"] else ""})</option>' for x in lib["sets"])
-    files = btn("open", "Open layout…", "open")
-    if v["download"]:
-        files += btn("save", "Save layout", "save")
-    if v["fs"]:
-        files += btn("save-in-place", "Save to file…", "save_in_place", " hidden")
-    files += btn("copy", "Copy layout", "copy_layout")
+    files = (btn("open", "Open layout…", "open") + btn("save", "Save layout", "save")
+             + btn("save-in-place", "Save to file…", "save_in_place", " hidden") + btn("copy", "Copy layout", "copy_layout"))
     bar = (f'<div class="el-bar" role="toolbar" aria-label="Electrical plan">'
            f'<label class="tip el-set-wrap" data-tip="{dx.esc(etip(d, "set"))}">Symbol set <select class="el-set">{sets}</select></label>'
            + files + '<span class="el-sep"></span>'
@@ -148,7 +131,7 @@ def page_template(lib: dict, d: dx.Docs, rules: dict, v: dict) -> str:
                                           f'data-tip="{dx.esc(d.control_tip(k))}">{label}</button>')
     tools = ('<div class="dwg-tools">' + ctl("in", "+", "in", "Zoom in") + ctl("out", "&minus;", "out", "Zoom out") + ctl("reset", "Reset view", "reset")
              + ctl("all-on", "All layers on", "all-on") + ctl("all-off", "All layers off", "all-off")
-             + (ctl("print", "Print view", "print") if v["print"] else "")
+             + ctl("print", "Print view", "print")
              + dx.tip("pinch or Ctrl/⌘ + wheel: zoom · drag the drawing: pan · drag a symbol: move", d.control_tip("pan"), cls="tip dwg-hint")
              + "</div>")
     el_lay = ("".join(f'<label><input type="checkbox" data-toggle-layer="{dx.esc(L)}" data-base="Elektro" checked> {dx.esc(L)} '
@@ -178,18 +161,14 @@ def page_template(lib: dict, d: dx.Docs, rules: dict, v: dict) -> str:
             + '<input type="file" class="el-file" accept=".json,application/json" hidden aria-label="Open a layout file"></div></template>')
 
 
-def params_panel(d: dx.Docs, v: dict) -> str:
+def params_panel(d: dx.Docs) -> str:
     """The Parameters panel: its bar, with the dropdown that explains Live / Needs re-export once (the tables are built by the page
     script from the parameters, so a loaded or reset file shows at once)."""
     pp = d.t["params_panel"]
     b = lambda act, label, key: f'<button type="button" class="tip" data-pact="{act}" data-tip="{dx.esc(etip(d, key))}">{label}</button>'
-    bar = b("copy", "Copy parameters", "params_copy")
-    if v["download"]:
-        bar += b("save", "Save parameters", "params_save")
-    if v["fs"]:
-        bar += b("save-in-place", "Save to file…", "params_save")
-    bar += b("load", "Load parameters…", "params_load") + b("reset", "Reset to the page's file", "params_reset")
-    bar += dropdown(pp["dropdown_label"], dx.bullets(pp["callout_" + ("pages" if v["download"] else "artifact")]))
+    bar = (b("copy", "Copy parameters", "params_copy") + b("save", "Save parameters", "params_save") + b("save-in-place", "Save to file…", "params_save")
+           + b("load", "Load parameters…", "params_load") + b("reset", "Reset to the page's file", "params_reset"))
+    bar += dropdown(pp["dropdown_label"], dx.bullets(pp["callout_pages"]))
     return (f'<div class="el-params"><h2 class="el-params-h"><span class="tip" data-tip="{dx.esc(etip(d, "params"))}">Parameters</span></h2>'
             '<p class="el-params-status el-status" role="status" aria-live="polite"></p>'
             f'<div class="el-params-bar">{bar}</div>'
@@ -305,8 +284,8 @@ def _acc(d: dx.Docs, key: str, extra: str = "") -> str:
     return dx.details(anchor(key), c["label"], dx.bullets(c["bullets"]) + extra, meta=(d.t["docs"].get("tags") or {}).get(key, ""))
 
 
-def _howto_tab(d: dx.Docs, part: dict, v: dict, lib: dict, rules: dict, cfg: dict) -> tuple:
-    st = part.get("steps") or part["steps_" + v["id"]]
+def _howto_tab(d: dx.Docs, part: dict, lib: dict, rules: dict, cfg: dict) -> tuple:
+    st = part["steps"]
     extras = {
         "rooms": _kv([("room_label_max_m", f"{cfg['room_label_max_m']:g} m", cfg["room_label_max_m_note"]),
                       ("symbol_scale", f"{cfg['symbol_scale']:g} × nominal mm", cfg["symbol_scale_note"])]),
@@ -318,8 +297,7 @@ def _howto_tab(d: dx.Docs, part: dict, v: dict, lib: dict, rules: dict, cfg: dic
     stack = "".join(_acc(d, k, extras.get(k, "")) for k in part["details"])
     if part["key"] == "print":
         pr, pc = d.t["print"], d.print_cfg()
-        demo = "" if v["print"] else dx.callout(f"<p>{dx.md_inline(pr['demo'])}</p>", "watch")
-        stack += dx.details("doc-print", pr["label"], demo + dx.steps(pr["steps"]) + dx.bullets(pr["facts"])
+        stack += dx.details("doc-print", pr["label"], dx.steps(pr["steps"]) + dx.bullets(pr["facts"])
                             + _kv([("Paper", f"{pr['paper']} {pr['orientation']}, {pc['paper_mm'][0]} × {pc['paper_mm'][1]} mm", ""),
                                    ("Margins", f"{pr['margin_mm']} mm", ""), ("Drawing area", f"{pc['draw_mm'][0]} × {pc['draw_mm'][1]} mm", pr["note"])]),
                             meta=(d.t["docs"].get("tags") or {}).get("print", ""), open_=True)
@@ -328,7 +306,7 @@ def _howto_tab(d: dx.Docs, part: dict, v: dict, lib: dict, rules: dict, cfg: dic
     return (howto_anchor(part["key"]), part["label"], body)
 
 
-def doc_tab(lib: dict, rules: dict, params: dict, cfg: dict, d: dx.Docs, v: dict, plan: dict) -> str:
+def doc_tab(lib: dict, rules: dict, params: dict, cfg: dict, d: dx.Docs, plan: dict) -> str:
     t, D = d.t, d.t["docs"]
     T = D["tabs"]
     sdef = el_symbols.default_set(lib)
@@ -343,7 +321,7 @@ def doc_tab(lib: dict, rules: dict, params: dict, cfg: dict, d: dx.Docs, v: dict
              + f'<h3 class="subhead">{dx.esc(D["quick_start_label"])}</h3>' + dx.docsec("doc-el-quickstart", dx.steps(D["quick_start"])))
     # How to
     howto = (dx.section_head(T["howto"]["label"], T["howto"]["note"])
-             + dx.tabset("ts-doc-howto", [_howto_tab(d, p, v, lib, rules, cfg) for p in t["howto"]["parts"]]))
+             + dx.tabset("ts-doc-howto", [_howto_tab(d, p, lib, rules, cfg) for p in t["howto"]["parts"]]))
     # Controls
     ctl_rows, ctl_ids = [], []
     for k, c in t["controls"].items():
@@ -387,13 +365,11 @@ def doc_tab(lib: dict, rules: dict, params: dict, cfg: dict, d: dx.Docs, v: dict
     # About
     w = t["whatsnew"]
     news = "".join(f'<h3 class="subhead">{dx.esc(e["date"])} · {dx.esc(e["title"])}</h3>' + dx.bullets(e["items"]) for e in w["entries"])
-    pages_link = f'<div class="linkrow"><a href="{dx.esc(t["pages_url"])}">GitHub Pages version</a></div>'
     build = (dx.bullets(D["build"]["bullets"]) + _kv([("Parameters", f"{params['id']} v{params['version']}", f"SHA-256 {el_params.sha256()}"),
                                                        ("Symbol set", f"{sdef['id']} v{sdef['version']}", sdef["status"]),
                                                        ("Texts", "presets/editor_docs.json", ""), ("Builder", "tools/build_editor.py", "")]))
     about = (dx.section_head(T["about"]["label"], T["about"]["note"]) + dx.tabset("ts-doc-about", [
         (anchor("privacy"), "Privacy", dx.docsec(anchor("privacy") + "-body", dx.bullets(_c(d, "privacy")["bullets"]))),
-        (anchor("variants"), _c(d, "variants")["label"], dx.docsec(anchor("variants") + "-body", dx.bullets(_c(d, "variants")["bullets"]) + pages_link)),
         ("doc-el-whatsnew", w["label"], dx.docsec("doc-el-whatsnew-body", news)),
         ("doc-el-build", D["build"]["label"], dx.docsec("doc-el-build-body", build), {"internal": True}),
     ]))
@@ -409,20 +385,12 @@ def doc_tab(lib: dict, rules: dict, params: dict, cfg: dict, d: dx.Docs, v: dict
 
 # ---- the page --------------------------------------------------------------------------------------------------------------------
 
-_REGION = re.compile(r"[ \t]*// @pages-only-start[^\n]*\n.*?// @pages-only-end[^\n]*\n", re.S)
+def _asset(name: str) -> str:
+    return (EDITOR / name).read_text(encoding="utf-8")
 
 
-def _asset(name: str, variant: str = "pages") -> str:
-    """An editor asset; for the artifact the pages-only regions (downloads, file pickers, print) are left out."""
-    text = (EDITOR / name).read_text(encoding="utf-8")
-    if text.count("@pages-only-start") != text.count("@pages-only-end"):
-        raise ValueError(f"editor/{name}: unbalanced @pages-only markers")
-    return _REGION.sub("", text) if variant == "artifact" else text
-
-
-def build(plan: dict, variant: str) -> str:
-    """The page for one variant: a whole document (pages) or page content starting with <title> (artifact)."""
-    v = VARIANTS[variant]
+def build(plan: dict) -> str:
+    """The page: a whole HTML document."""
     d = dx.Docs.load()
     lib = el_symbols.load()
     problems = el_symbols.validate(lib)
@@ -443,14 +411,13 @@ def build(plan: dict, variant: str) -> str:
     cfg = el_layout.load_page(params=params)
     sdef = el_symbols.default_set(lib)
     t = d.t
-    page_cfg = dict(cfg, messages=t["electrical"]["messages"], banners=t["banners"], pages_url=t["pages_url"], variant=v,
+    page_cfg = dict(cfg, messages=t["electrical"]["messages"], banners=t["banners"],
                     anchors={k: anchor(k) for k in ("suggestions", "groups", "apply", "links_layer", "rules", "connect", "layers", "storeys", "plan",
                                                     "dxf_export") + tuple("hint_" + h.lower() for h in el_checks.IDS)},
                     labels={"hint_" + h.lower(): _c(d, "hint_" + h.lower())["label"] for h in el_checks.IDS},
                     tips={"layer": d.bl("electrical.layer"), "storeys": d.bl("electrical.storeys")},
                     print=d.print_cfg(), params_panel=t["params_panel"], docs_ui={"internals": t["docs"]["internals"], "fs": t["docs"]["fs"]})
-    note_key = "artifact_note" if variant == "artifact" else "pages_note"
-    note = dx.esc(t["banners"][note_key]).replace("{url}", f'<a href="{dx.esc(t["pages_url"])}">{dx.esc(t["pages_url"])}</a>')
+    note = dx.esc(t["banners"]["pages_note"])
     bn = t["banners"]
     head = (f'<header class="vpt-head"><div class="vpt-headrow"><h1>{dx.esc(t["title"])}</h1><div class="vpt-chips">'
             f'<span class="vpt-chip vpt-synth" data-banner="synthetic"><b>{dx.esc(bn["synthetic"])}</b></span>'
@@ -478,11 +445,11 @@ def build(plan: dict, variant: str) -> str:
                '<p class="vpt-status el-status" role="status" aria-live="polite"></p></div>')
     editor = (f'<section class="vpt-pane" role="tabpanel" id="vpt-pane-editor" aria-labelledby="vpt-tab-editor">{intro}{filebar}'
               + f'<div class="el-storey-tabs" role="tablist" aria-label="Storeys"></div><div class="el-storeys"></div>'
-              + page_template(lib, d, rules, v) + '</section>')
+              + page_template(lib, d, rules) + '</section>')
     params_pane = (f'<section class="vpt-pane" role="tabpanel" id="vpt-pane-params" aria-labelledby="vpt-tab-params" hidden>'
-                   + params_panel(d, v) + '</section>')
+                   + params_panel(d) + '</section>')
     docs_pane = (f'<section class="vpt-pane" role="tabpanel" id="vpt-pane-docs" aria-labelledby="vpt-tab-docs" hidden>'
-                 + doc_tab(lib, rules, params, cfg, d, v, plan) + '</section>')
+                 + doc_tab(lib, rules, params, cfg, d, plan) + '</section>')
     overlays = ('<div class="vpt-ask" role="alertdialog" aria-modal="false" aria-labelledby="vpt-ask-msg" hidden><p id="vpt-ask-msg"></p>'
                 f'<button type="button" data-ask="yes">{dx.esc(t["electrical"]["messages"]["ask_yes"])}</button> '
                 f'<button type="button" data-ask="no">{dx.esc(t["electrical"]["messages"]["ask_no"])}</button></div>'
@@ -498,11 +465,9 @@ def build(plan: dict, variant: str) -> str:
             f'<script type="application/json" id="el-params-schema">{_json(params_schema)}</script>'
             f'<script type="application/json" id="el-params-meta">{_json(params_meta(params))}</script>')
     css = _asset("editor.css") + "\n" + d.print_css()
-    body = (f'<div class="vpt" id="vpt" data-variant="{variant}">{head}{tabs}{editor}{params_pane}{docs_pane}</div>{overlays}{data}'
-            f'<script>\n{_asset("core.js", variant)}\n</script>\n<script>\n{_asset("editor.js", variant)}\n</script>\n')
+    body = (f'<div class="vpt" id="vpt">{head}{tabs}{editor}{params_pane}{docs_pane}</div>{overlays}{data}'
+            f'<script>\n{_asset("core.js")}\n</script>\n<script>\n{_asset("editor.js")}\n</script>\n')
     title = f"<title>{dx.esc(t['title'])}</title>"
-    if variant == "artifact":
-        return f"{title}\n<style>\n{css}\n</style>\n{body}"
     return ("<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
             f"<meta name=\"description\" content=\"{dx.esc(t['intro'][:150])}\">\n{title}\n<style>\n{css}\n</style>\n</head>\n<body>\n{body}</body>\n</html>\n")

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Browser check of the two built editor pages in headless Chrome (tools/cdp.py): what a user sees, not only the HTML.
+"""Browser check of the built editor page in headless Chrome (tools/cdp.py): what a user sees, not only the HTML.
 
-Per page (site/index.html; artifact/electrical_planner.html wrapped in a minimal document skeleton under _scratch/, as the
-artifact host would wrap it):
+Per page (site/index.html):
   C1  the drawing is visible: pixels of the stage that are not the black background (falsified: drawing layers hidden)
   C2  the page opens in a working state: the simple example on the synthetic flat, marked EXAMPLE, one Wechselschaltung group
   C3  a symbol dragged from the palette with real mouse events lands within 3 px of where it was let go (Snap off)
@@ -12,14 +11,13 @@ artifact host would wrap it):
       and opens the valid sample plan (match)
   C7  at 400 px width (light and dark): no horizontal page scroll, Editor, Parameters and Documentation tabs
   C8  text contrast >= 4.5:1 for every visible text element, in light and in dark page themes
-  C9  the variant's buttons: Pages has Save / Save to file / Print view, the artifact has none of them (Copy instead)
+  C9  the page's buttons: Save / Save to file / Print view and Copy are all there
   C10 no console error or uncaught exception
   C11 no network request except the page itself (falsified: an injected image from a non-allowed host is caught)
-  C12 print view (Pages): every placed symbol is in the print sheet, visible in its print colour (pixels of its colour around it,
+  C12 print view: every placed symbol is in the print sheet, visible in its print colour (pixels of its colour around it,
       against the same crop with the electrical layers off) and in the PDF (stroke colour operators of Page.printToPDF, against a
       PDF with the layers off); a symbol picked but not placed is named in a warning above the sheet. Falsified every run: with
       the symbols made white on paper (the bug, reintroduced) the pixel and PDF measures must drop, else the check cannot go red.
-      The demo: no print view to reach.
   C13 every Documentation anchor (#doc-..., from the page's links and tests/doc_anchors.txt) opens its tab, sub-tab and
       accordion and is visible; a popup's More link clicked with real mouse events opens the right tab and sub-tab
   C14 the page's layout checks H1-H9 equal vpt/el_checks.py on both examples, both rule sets, and each example without its
@@ -35,7 +33,7 @@ artifact host would wrap it):
       reported). Falsified every run: all dropdowns opened, a prose block added, a dropdown forced onto its own row and 130 px
       of text added above the drawing must each turn the matching measure red.
 
-Usage: check_editor.py [pages|artifact ...] [--browser chrome|edge] [--scheme light|dark] [--size 1440x900]
+Usage: check_editor.py [pages] [--browser chrome|edge] [--scheme light|dark] [--size 1440x900]
 The page opens in the given colour scheme (default light) at the given window size; C7/C8 cover both schemes either way.
 Exit codes: 0 PASS, 1 FAIL, 3 INDETERMINATE (browser missing or a step could not run).
 Results: _scratch/check_<variant>[_<browser>_<scheme>].json.
@@ -60,19 +58,13 @@ import cdp  # noqa: E402
 from vpt import el_checks, el_layout, el_params, el_rules, el_symbols  # noqa: E402
 
 SCRATCH = ROOT / "_scratch"
-PAGES = {"pages": ROOT / "site" / "index.html", "artifact": ROOT / "artifact" / "electrical_planner.html"}
+PAGES = {"pages": ROOT / "site" / "index.html"}
 ALLOWED_HOSTS = ("fonts.googleapis.com", "fonts.gstatic.com")
 STOREY = "2OG"
 
 
 def page_url(variant: str) -> str:
-    src = PAGES[variant]
-    if variant == "artifact":
-        wrapped = SCRATCH / "artifact_wrapped.html"
-        wrapped.write_text('<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-                           "</head><body>\n" + src.read_text(encoding="utf-8") + "\n</body></html>\n", encoding="utf-8")
-        return wrapped.resolve().as_uri()
-    return src.resolve().as_uri()
+    return PAGES[variant].resolve().as_uri()
 
 
 def external(requests: list[str], own: str) -> list[str]:
@@ -519,11 +511,8 @@ def run(variant: str, browser: str = "chrome", scheme: str = "light", size: tupl
         else:
             put("C15", None, "the socket could not be placed with a real drag")
         # ---- C12 print view: the placed symbols (SS1, LD, SA above, placed by real pointer events) on paper and in the PDF
-        if variant == "pages":
-            ok12, d12, x12 = print_check(b, P, lib)
-            put("C12", ok12, d12, **x12)
-        else:
-            put("C12", not b.js("!!document.querySelector('[data-act=\"print\"]')"), "the demo has no print view a user could reach (no Print view button)")
+        ok12, d12, x12 = print_check(b, P, lib)
+        put("C12", ok12, d12, **x12)
         # ---- C13 Documentation anchors and a real More click
         ok13, d13 = anchor_check(b, variant)
         put("C13", ok13, d13)
@@ -546,7 +535,7 @@ def run(variant: str, browser: str = "chrome", scheme: str = "light", size: tupl
         put("C5", how in ("box", "clipboard") and not probs and chk[0] == "match" and len(doc["symbols"]) == 3 and len(doc["links"]) == 1,
             f"copied via {how}: {len(text)} chars, schema problems {probs[:2]}, open check {chk[0]}: {chk[1]}")
         b.js("document.querySelector('.vpt-copybox').hidden = true")
-        # C5b the clipboard refused (as an artifact host may do): the text is shown in the copy box, selected
+        # C5b the clipboard refused (a browser may do so): the text is shown in the copy box, selected
         b.js("navigator.clipboard.writeText = function () { return Promise.reject(new Error('refused')); };"
              f" document.querySelector('.el-page[data-storey=\"{STOREY}\"] [data-el=\"copy\"]').click()")
         b.call("Runtime.evaluate", {"expression": "new Promise(function (ok) { setTimeout(ok, 300); })", "awaitPromise": True})
@@ -578,10 +567,10 @@ def run(variant: str, browser: str = "chrome", scheme: str = "light", size: tupl
             outcomes.append((f.name, got, b.js("document.querySelector('.vpt-status').textContent")[:120]))
             root = b.call("DOM.getDocument", {"depth": -1})["root"]["nodeId"]
         put("C6", [o[1] for o in outcomes] == ["could-not-tell", "different", "match"], "; ".join(f"{n}: {o} ({m})" for n, o, m in outcomes))
-        # ---- C9 the variant's buttons
+        # ---- C9 the page's buttons
         has = b.js("(function () { var q = function (s) { return !!document.querySelector(s); }; return { save: q('[data-el=\"save\"]'), fs: q('[data-el=\"save-in-place\"]'),"
                    " print: q('[data-act=\"print\"]'), psave: q('[data-pact=\"save\"]'), copy: q('[data-el=\"copy\"]'), pcopy: q('[data-pact=\"copy\"]') }; })()")
-        want = {"save": variant == "pages", "fs": variant == "pages", "print": variant == "pages", "psave": variant == "pages", "copy": True, "pcopy": True}
+        want = {"save": True, "fs": True, "print": True, "psave": True, "copy": True, "pcopy": True}
         put("C9", has == want, f"buttons {has}")
         # ---- C11 network, falsified by an injected image from a non-allowed host
         ext = external(b.requests, url)
@@ -643,8 +632,8 @@ def run(variant: str, browser: str = "chrome", scheme: str = "light", size: tupl
 
 def main(argv=None) -> int:
     import argparse
-    ap = argparse.ArgumentParser(description="Browser check of the editor pages")
-    ap.add_argument("variants", nargs="*", help=f"any of {', '.join(PAGES)} (default: both)")
+    ap = argparse.ArgumentParser(description="Browser check of the editor page")
+    ap.add_argument("variants", nargs="*", help=f"any of {', '.join(PAGES)} (default: all)")
     ap.add_argument("--browser", choices=sorted(cdp.BROWSERS), default="chrome")
     ap.add_argument("--scheme", choices=("light", "dark"), default="light")
     ap.add_argument("--size", default="1400x1000", help="window size WIDTHxHEIGHT in CSS pixels")

@@ -69,18 +69,17 @@ vpt = import "${vptSrc}/nix/vpt.nix" { inherit pkgs; python3Packages = pkgs.pyth
 | `tools/strip_layers.py` | `vpt-strip-layers` | Deletes layers the electrical base does not need |
 | `tools/recognise_fittings.py` | `vpt-recognise-fittings` | Finds WC, basin, bath, sink by shape |
 | `tools/validate_flat.py` | (repo only) | Checks the synthetic flat |
-| `tools/build_editor.py` | (repo only) | Builds the editor pages |
-| `tools/check_editor.py` | (repo only) | Headless browser check of the pages |
+| `tools/build_editor.py` | (repo only) | Builds the editor page |
+| `tools/check_editor.py` | (repo only) | Headless browser check of the page |
 | `tools/check_installed.py` | (repo only) | Checks the installed package from outside the repo |
 
 Every check has three outcomes: **PASS**, **FAIL**, **INDETERMINATE** ("could not tell"). Unconfirmed is never reported as a pass.
 
-## Editor pages
+## Editor page
 
-- **GitHub Pages** (`site/index.html`): real work. Save layout, Print view, Save parameters.
-- **Shareable demo** (`artifact/electrical_planner.html`): Copy layout instead of downloads. No printing.
-- Both open a plan, layout or parameter file from disk, or take pasted text.
-- Pages are self-contained: no server, no analytics, nothing loaded from other sites.
+- **GitHub Pages** (`site/index.html`): Save layout, Print view, Save parameters, Copy layout.
+- It opens a plan, layout or parameter file from disk, or takes pasted text.
+- The page is self-contained: no server, no analytics, nothing loaded from other sites.
 - Never commit your own plans or drawings here.
 
 ## Status and limits
@@ -104,9 +103,9 @@ Every check has three outcomes: **PASS**, **FAIL**, **INDETERMINATE** ("could no
 | `tools/` | Command-line tools (thin wrappers of `vpt/cli/`) |
 | `nix/` | `vpt.nix` (the package), `vpt-shell.nix`, LibreDWG 0.14 shell |
 | `samples/` | Synthetic flat, its plan file, an Elektro DXF |
-| `site/`, `artifact/` | The two built pages |
+| `site/` | The built page |
 | `tests/` | pytest suite, including deliberate-failure tests |
-| `_targets.R` | Pipeline: preset to DXF to plan to pages |
+| `_targets.R` | Pipeline: preset to DXF to plan to page |
 | `default.R`, `default.nix` | Reproducible environment |
 
 <details>
@@ -115,9 +114,9 @@ Every check has three outcomes: **PASS**, **FAIL**, **INDETERMINATE** ("could no
 Environment: [rix](https://docs.ropensci.org/rix/) in `default.R` generates `default.nix`. Needs Nix.
 
 ```bash
-nix-shell default.nix --run "Rscript -e 'targets::tar_make()'"     # DXF -> validation -> plan file -> pages
+nix-shell default.nix --run "Rscript -e 'targets::tar_make()'"     # DXF -> validation -> plan file -> page
 nix-shell default.nix --run "python3 -m pytest tests -q"
-nix-shell default.nix --run "python3 tools/check_editor.py"         # headless Chrome check of both pages
+nix-shell default.nix --run "python3 tools/check_editor.py"         # headless Chrome check of the page
 nix-shell default.nix --run "python3 tools/check_editor.py --scheme dark --size 1440x900"
 nix-shell default.nix --run "python3 tools/check_editor.py --browser edge"
 nix-shell nix/vpt-shell.nix --run "python3 tools/check_installed.py ."   # the installed package

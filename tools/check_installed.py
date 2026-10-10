@@ -59,7 +59,7 @@ def main(argv=None) -> int:
         ok(out.is_file() and out.read_bytes() == (repo / "samples/synthetic_flat.plan.json").read_bytes(),
            "plan file byte-identical to samples/synthetic_flat.plan.json")
     plan = json.loads((repo / "samples/synthetic_flat.plan.json").read_text(encoding="utf-8"))
-    ok(editor_page.build(plan, "pages") == (repo / "site/index.html").read_text(encoding="utf-8"), "installed editor_page builds site/index.html exactly")
+    ok(editor_page.build(plan) == (repo / "site/index.html").read_text(encoding="utf-8"), "installed editor_page builds site/index.html exactly")
     for tool in SCRIPTS[1:]:
         h = subprocess.run([tool, "--help"], capture_output=True, text=True) if shutil.which(tool) else None
         ok(h is not None and h.returncode == 0 and "usage" in h.stdout, f"{tool} --help")

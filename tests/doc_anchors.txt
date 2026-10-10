@@ -95,7 +95,6 @@ doc-el-sym-at-iec60617-draft1-wm
 doc-el-symbols-at-iec60617-draft1
 doc-el-undo
 doc-el-unverified
-doc-el-variants
 doc-el-whatsnew
 doc-electrical
 doc-print
